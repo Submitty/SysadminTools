@@ -59,8 +59,7 @@ this argument be ommitted.
 ---
 
 Submitty databases can be restored from a dump using the pg_restore tool.
-q.v. [https://www.postgresql.org/docs/9.5/static/app-pgrestore.html]
-(https://www.postgresql.org/docs/9.5/static/app-pgrestore.html)
+q.v. [https://www.postgresql.org/docs/9.5/static/app-pgrestore.html](https://www.postgresql.org/docs/9.5/static/app-pgrestore.html)
 
 This is script intended to be run as a cronjob by 'root' on the same server
 machine as the Submitty system.  *Running this script on another server other
@@ -86,9 +85,9 @@ folders, grouped by semester.
 ---
 
 WARNING:  Database dumps can contain student information that is protected by
-[FERPA (20 U.S.C. § 1232g)]
-(https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html).  Please consult
-with your school's IT dept. for advice on data security practices and policies.
+[FERPA (20 U.S.C. § 1232g)](https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html).
+Please consult with your school's IT dept. for advice on data security policies
+and practices.
 
 ---
 

@@ -1,11 +1,10 @@
 # Submitty Student Auto Feed Script
 Readme June 26, 2018
 
-These are code examples for any University to use as a basis to have student
-enrollment data added or updated.
+This is a code example for any University to use as a basis to have student
+enrollment data added or updated on an automated schedule.
 
-Instructions can be found at [http://submitty.org/sysadmin/student\_auto\_feed]
-(http://submitty.org/sysadmin/student_auto_feed)
+Instructions can be found at [http://submitty.org/sysadmin/student\_auto\_feed](http://submitty.org/sysadmin/student_auto_feed)
 
 ### config.php
 A series of define statements that is used to configure the auto feed script.
@@ -21,13 +20,13 @@ CSV file.  Extra courses can exist in the data (such as a department wide CSV),
 and any enrollments for courses not registered in Submitty are ignored.
 
 Conceptually, a University's registrar and/or data warehouse will provide a
-regular data dump, uploaded somewhere as a CSV file.  Then with the automatic
-uploads scheduled, a sysadmin should setup a cron job to regularly trigger this
-script to run sometime after the data dump is provided.
+regularly scheduled data dump, uploaded somewhere as a CSV file.  A sysadmin
+should setup a cron job to regularly trigger this script to run when the CSV
+file is available.
 
-This code does not need to be run specifically on the Submitty server, but it
-will need access to the Submitty "master" database and the enrollment CSV data
-file.
+The auto feed script does not need to be run specifically on the Submitty
+server, but it will need access to the Submitty "master" database and the
+enrollment CSV data file.
 
 ---
 
@@ -53,6 +52,13 @@ will follow the pattern of TYY, where
 - e.g. April 15, 2018 will correspond to "s18" (Spring 2018).
 
 `-g` and `-t` are mutually exclusive.
+
+---
+
+WARNING:  Student enrollment CSV files may contain private student
+information that is protected by [FERPA (20 U.S.C. § 1232g)](https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html).
+Please contact your school's IT dept. for advice on your school's data security
+policies and practices.
 
 ---
 
