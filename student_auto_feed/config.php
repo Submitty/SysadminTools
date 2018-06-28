@@ -5,18 +5,11 @@
  * config.php script used by submitty_student_auto_feed
  * By Peter Bailie, Systems Programmer (RPI dept of computer science)
  *
- * Requires minimum PHP version 5.4 with pgsql, iconv, and ssh2 extensions.
+ * Requires minimum PHP version 5.6 with pgsql, iconv, and ssh2 extensions.
  *
- * Configuration of submitty_student_auto_feed is structured through a series
- * of named constants.  This configuration is also used by
- * submitty_users_data_backup.php
- * submitty_users_data_rollback.php
- *
- * THIS SOFTWARE IS PROVIDED AS IS AND HAS NO GUARANTEE THAT IT IS SAFE OR
- * COMPATIBLE WITH YOUR UNIVERSITY'S INFORMATION SYSTEMS.  THIS IS ONLY A CODE
- * EXAMPLE FOR YOUR UNIVERSITY'S SYSYTEM'S PROGRAMMER TO PROVIDE AN
- * IMPLEMENTATION.  IT MAY REQUIRE SOME ADDITIONAL MODIFICATION TO SAFELY WORK
- * WITH YOUR UNIVERSITY'S AND/OR DEPARTMENT'S INFORMATION SYSTEMS.
+ * Configuration of submitty_student_auto_feed is structured through defined
+ * constants.  Expanded instructions can be found at
+ * http://submitty.org/sysadmin/student_auto_feed
  *
  * -------------------------------------------------------------------------- */
 
@@ -37,7 +30,6 @@
 
 // Univeristy campus's timezone.  ***THIS NEEDS TO BE SET.
 date_default_timezone_set('America/New_York');
-
 
 
 /* Definitions for error logging -------------------------------------------- */
