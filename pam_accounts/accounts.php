@@ -67,12 +67,25 @@ exit(0);
 
 class make_accounts {
 
-	private static $process;
 	private static $db_conn;
+	private static $auth_account_list = array();
 	private static $db_queries = array(
 		'term'   => "SELECT DISTINCT user_id FROM courses_users WHERE semester=$1",
 		'active' => "SELECT DISTINCT user_id FROM courses_users WHERE user_group=1 OR (user_group<>1 AND status=1)",
 		'clean'  => "SELECT DISTINCT user_id FROM courses_users WHERE user_group<>1 AND status<>1"
+	);
+	private static $cli = array(
+		'term'   => function($user) {
+			system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
+		},
+		'active' => function($user) {
+			system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
+		},
+		'clean'  => function($user) {
+			if (self::$check_auth_account($user)) {
+				system("/usr/sbin/deluser --quiet {$user} > /dev/null 2>&1");
+			}
+		}
 	);
 
 	public static function main() {
@@ -82,44 +95,25 @@ class make_accounts {
 		}
 
 		//Check CLI args for instructions.  Quit if set to false.
-		$command = cli_args::parse_args();
-		if ($command === false) {
+		if (($cli_args = cli_args::parse_args()) === false) {
 			exit(1);
 		}
-
-		self::$process = array_pad(explode(" ", $command), 2, null);
+		$command = $cli_args[0];
+		$db_params = $cli_args[1];
 
 		//Connect to database.  Quit on failure.
-		if (!self::db_conn()) {
+		if (self::db_conn() === false) {
 			exit(1);
 		}
 
-		//Get user list based on type of process.  Quit on failure.
-		$query = self::$db_queries[self::$process[0]];
-		$params = array(self::$process[1]);
-		$result = pg_query_params(self::$db_conn, $query, $params);
-		if ($result === false) {
+		//Get user list based on command.  Quit on failure.
+		if (($result = pg_query_params(self::$db_conn, self::$db_queries[$command], $db_params)) === false) {
 			self::log_it("Submitty Auto Account Creation: Cannot read user list from {$db_name}.");
 			exit(1);
 		}
 
-		$user_list = pg_fetch_all_columns($result, 0);
-
-		switch(self::$process[0]) {
-		case 'term':
-		case 'active':
-			foreach($user_list as $user) {
-				//We don't care if user already exists as adduser will skip over any account that already exists.
-				system ("/usr/sbin/adduser --quiet --home /tmp --gecos 'RCS auth account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
-			}
-			break;
-		case 'clean':
-			foreach($user_list as $user) {
-				//deluser
-			}
-			break;
-		default;
-			exit(1);
+		while (($user = pg_fetch_result($result, null, 0)) !== false) {
+			$cli[$command]($user);
 		}
 	}
 
@@ -139,6 +133,25 @@ class make_accounts {
 		});
 
 		return true;
+	}
+
+	private function check_auth_account($user) {
+		// This is a validation check for an empty list before searching, so
+		// might as well wrap in the data loader for when list is empty.
+		if (empty(self::$auth_account_list)) {
+			if (($fh = fopen('/etc/passwd', 'r')) === false) {
+				self::logit("Cannot open '/etc/passwd' to check for auth only accounts.");
+				exit(1);
+			}
+
+			while (($row = fgetcsv($fh, 0, ':')) !== false) {
+				array_push(self::$auth_only_accounts, array('id' => $row[0], 'gecos' => $row[4]));
+			}
+
+			fclose($fh);
+		}
+
+		return array_search($user, array_column(self::$auth_only_accounts, 'id')) === false ? false : true;
 	}
 
 	/**
@@ -184,7 +197,7 @@ HELP;
 	 * Called with 'cli_args::parse_args()'
 	 *
 	 * @access public
-	 * @return mixed term code as string or boolean false when no term code is present.
+	 * @return array consisting of process command (string) and possibly associated term code (string or null) or boolean false on error.
 	 */
 	public static function parse_args() {
 		self::$args = getopt('t:agrh', array('help'));
@@ -195,18 +208,18 @@ HELP;
 			self::print_help();
 			return false;
 		case array_key_exists('a', self::$args):
-			return "active";
+			return array("active", null);
 		case array_key_exists('t', self::$args):
-			return "term " . self::$args['t'];
+			return ("term", self::$args['t']);
 		case array_key_exists('g', self::$args):
 			//Guess current term
 			//(s)pring is month <= 5, (f)all is month >= 8, s(u)mmer are months 6 and 7.
 			//if ($month <= 5) {...} else if ($month >= 8) {...} else {...}
 			$month = intval(date("m", time()));
 			$year  = date("y", time());
-			return ($month <= 5) ? "term s{$year}" : (($month >= 8) ? "term f{$year}" : "term u{$year}");
+			return ($month <= 5) ? array("term", "s{$year}") : (($month >= 8) ? array("term", "f{$year}") : array("term", "u{$year}"));
 		case array_key_exists('r', self::$args):
-			return "clean";
+			return array("clean", null);
 		default:
 			print self::$help_usage . PHP_EOL;
 			return false;
