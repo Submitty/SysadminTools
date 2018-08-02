@@ -82,7 +82,7 @@ class make_accounts {
 			system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
 		},
 		'clean'  => function($user) {
-			if (self::$check_auth_account($user)) {
+			if (self::check_auth_account($user)) {
 				system("/usr/sbin/deluser --quiet {$user} > /dev/null 2>&1");
 			}
 		}
@@ -151,7 +151,8 @@ class make_accounts {
 			fclose($fh);
 		}
 
-		return array_search($user, array_column(self::$auth_only_accounts, 'id')) === false ? false : true;
+		$index = array_search($user, array_column(self::$auth_only_accounts, 'id'));
+		return (self::$auth_only_accounts[$index]['gecos'] === 'auth only account');
 	}
 
 	/**
