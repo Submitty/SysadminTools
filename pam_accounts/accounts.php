@@ -15,9 +15,11 @@
  *
  * "30 * * * * /var/local/submitty/bin/accounts.php"
  *
- * You may specify the term on the command line with "-t [term code]".
+ * You may specify the term on the command line:
+ * "-t [term code]" make auth accounts for [term code].
  * "-g" can be used to guess the term by the server's calendar month and year.
- * "-s" will process accounts based on status and user role.
+ * "-a" will make auth accounts for all instructors and all active courses.
+ * "-r" will remove grader and student auth accounts from inactive courses.
  * For example:
  *
  * ./accounts.php -t s18
