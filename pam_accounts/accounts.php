@@ -70,9 +70,20 @@ class make_accounts {
 	private static $db_conn;
 	private static $auth_account_list = array();
 	private static $db_queries = array(
-		'term'   => "SELECT DISTINCT user_id FROM courses_users WHERE semester=$1",
-		'active' => "SELECT DISTINCT user_id FROM courses_users WHERE user_group=1 OR (user_group<>1 AND status=1)",
-		'clean'  => "SELECT DISTINCT user_id FROM courses_users WHERE user_group<>1 AND status<>1"
+		'term' =>
+"SELECT DISTINCT user_id
+FROM courses_users
+WHERE semester=$1",
+		'active' =>
+"SELECT DISTINCT user_id
+FROM courses_users as cu
+LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semester
+WHERE cu.user_group=1 OR (cu.user_group<>1 AND c.status=1)",
+		'clean' =>
+"SELECT DISTINCT user_id
+FROM courses_users as cu
+LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semseter
+WHERE cu.user_group<>1 AND u.status<>1"
 	);
 	private static $cli = array(
 		'term'   => function($user) {
