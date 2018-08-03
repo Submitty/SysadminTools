@@ -15,7 +15,7 @@
  *
  * "30 * * * * /var/local/submitty/bin/accounts.php"
  *
- * You may specify the term on the command line with "-t".
+ * You may specify the term on the command line with "-t [term code]".
  * "-g" can be used to guess the term by the server's calendar month and year.
  * "-s" will process accounts based on status and user role.
  * For example:
@@ -62,72 +62,165 @@ define('ERROR_EMAIL', 'sysadmins@lists.myuniversity.edu');
 date_default_timezone_set('America/New_York');
 
 //Start process
-make_accounts::main();
-exit(0);
+new make_accounts();
 
+/** class constructor manages script workflow */
 class make_accounts {
 
-	private static $db_conn;
-	private static $auth_account_list = array();
-	private static $db_queries = array(
-		'term' =>
-"SELECT DISTINCT user_id
-FROM courses_users
-WHERE semester=$1",
-		'active' =>
-"SELECT DISTINCT user_id
-FROM courses_users as cu
-LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semester
-WHERE cu.user_group=1 OR (cu.user_group<>1 AND c.status=1)",
-		'clean' =>
-"SELECT DISTINCT user_id
-FROM courses_users as cu
-LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semseter
-WHERE cu.user_group<>1 AND u.status<>1"
-	);
-	private static $cli = array(
-		'term'   => function($user) {
-			system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
-		},
-		'active' => function($user) {
-			system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
-		},
-		'clean'  => function($user) {
-			if (self::check_auth_account($user)) {
-				system("/usr/sbin/deluser --quiet {$user} > /dev/null 2>&1");
-			}
-		}
-	);
+	/** @var resource pgsql database connection */
+	private $db_conn;
+	/** @var string what $workflow to process */
+	private $workflow;
+	/** @var string when the db_query has a paramter, null otherwise */
+	private $db_params;
+	/** @var string DB query to be run */
+	private $db_queries;
+	/** @var closure logic to process $workflow */
+	private $system_call;
+	/** @var array user_id list to be checked against /etc/passwd (only certain workflows) */
+	private $auth_account_list;
 
-	public static function main() {
+	public function __construct() {
 		//IMPORTANT: This script needs to be run as root!
 		if (posix_getuid() !== 0) {
 			exit("This script must be run as root." . PHP_EOL);
 		}
 
-		//Check CLI args for instructions.  Quit if set to false.
-		if (($cli_args = cli_args::parse_args()) === false) {
+		//Init class properties, quit on error.
+		if ($this->init() === false) {
 			exit(1);
 		}
-		$command = $cli_args[0];
-		$db_params = $cli_args[1];
 
-		//Connect to database.  Quit on failure.
-		if (self::db_conn() === false) {
+		//Do workflow, quit on error.
+		if ($this->process() === false) {
 			exit(1);
+		}
+
+		//All done.
+		exit(0);
+	}
+
+	/**
+	 * Initialize class properties, based on $this->workflow
+	 *
+	 * @access private
+	 * @return boolean TRUE on success, FALSE when there is a problem.
+	 */
+	private function init() {
+		//Check CLI args.
+		if (($cli_args = cli_args::parse_args()) === false) {
+			return false;
+		}
+		$this->workflow  = $cli_args[0];
+		$this->db_params = $cli_args[1];
+
+		//Define database query based on workflow.
+		switch($this->workflow) {
+		case 'term':
+			$this->db_query = <<<SQL
+SELECT DISTINCT user_id FROM courses_users
+WHERE semester=$1
+SQL;
+            break;
+        case 'active':
+        	$this->db_query = <<<SQL
+SELECT DISTINCT user_id
+FROM courses_users as cu
+LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semester
+WHERE cu.user_group=1 OR (cu.user_group<>1 AND c.status=1)
+SQL;
+			break;
+		case 'clean':
+			$this->db_query = <<<SQL
+SELECT DISTINCT user_id
+FROM courses_users as cu
+LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semseter
+WHERE cu.user_group<>1 AND u.status<>1
+SQL;
+			break;
+		default:
+			$this->log_it("Define $this->db_query: Invalid $this->workflow");
+			return false;
+		}
+
+		//Define system call based on workflow.
+		switch($this->workflow) {
+		case 'term':
+			$this->system_call = function($user) {
+				system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
+			};
+			break;
+		case 'active':
+			$this->system_call = function($user) {
+				system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
+			};
+			break;
+		case 'clean':
+			$this->system_call = function($user) {
+				if ($this->check_auth_account($user)) {
+					system("/usr/sbin/deluser --quiet {$user} > /dev/null 2>&1");
+				}
+			};
+			break;
+		default:
+			$this_>log_it("Define $this->system_call: Invalid $this->workflow");
+			return false;
+		}
+
+		//Certain workflows require the contents of the passwd file.
+		switch($this->workflow) {
+		case 'clean':
+			$this->auth_only_accounts = array();
+			if (($fh = fopen('/etc/passwd', 'r')) === false) {
+				$this->logit("Cannot open '/etc/passwd' to check for auth only accounts.");
+				return false;
+			}
+
+			while (($row = fgetcsv($fh, 0, ':')) !== false) {
+				array_push($this->auth_only_accounts, array('id' => $row[0], 'gecos' => $row[4]));
+			}
+
+			fclose($fh);
+			break;
+		}
+
+		//Signal success
+		return true;
+	}
+
+	/**
+	 * Process workflow
+	 *
+	 * @access private
+	 * @return boolean TRUE on success, FALSE when there is a problem.
+	 */
+	private function process() {
+		//Connect to database.  Quit on failure.
+		if ($this->db_conn() === false) {
+			return false;
 		}
 
 		//Get user list based on command.  Quit on failure.
-		if (($result = pg_query_params(self::$db_conn, self::$db_queries[$command], $db_params)) === false) {
-			self::log_it("Submitty Auto Account Creation: Cannot read user list from {$db_name}.");
-			exit(1);
+		if (($result = pg_query_params($this->db_conn, $this->db_query, $this->db_params)) === false) {
+			$this->log_it("Submitty Auto Account Creation: Cannot read user list from {$db_name}.");
+			return false;
 		}
 
+		//Do workflow (iterate through each user returned by database)
 		while (($user = pg_fetch_result($result, null, 0)) !== false) {
-			$cli[$command]($user);
+			$this->system_call($user);
 		}
+
+		//Signal success
+		return true;
 	}
 
+	/**
+	 * Establish connection to Submitty Database
+	 *
+	 * @access private
+	 * @return boolean TRUE on success, FALSE when there is a problem.
+	 */
 	private static function db_conn() {
 		$db_user = DB_LOGIN;
 		$db_pass = DB_PASSWD;
@@ -143,35 +236,28 @@ WHERE cu.user_group<>1 AND u.status<>1"
 			pg_close(self::$db_conn);
 		});
 
+		//Signal success
 		return true;
 	}
 
+	/**
+	 * Verify that $user is an "auth only account"
+	 *
+	 * @access private
+	 * @return boolean TRUE when $user is an "auth only account", FALSE otherwise.
+	 */
 	private function check_auth_account($user) {
-		// This is a validation check for an empty list before searching, so
-		// might as well wrap in the data loader for when list is empty.
-		if (empty(self::$auth_account_list)) {
-			if (($fh = fopen('/etc/passwd', 'r')) === false) {
-				self::logit("Cannot open '/etc/passwd' to check for auth only accounts.");
-				exit(1);
-			}
-
-			while (($row = fgetcsv($fh, 0, ':')) !== false) {
-				array_push(self::$auth_only_accounts, array('id' => $row[0], 'gecos' => $row[4]));
-			}
-
-			fclose($fh);
-		}
-
-		$index = array_search($user, array_column(self::$auth_only_accounts, 'id'));
-		return (self::$auth_only_accounts[$index]['gecos'] === 'auth only account');
+		$index = array_search($user, array_column($this->auth_only_accounts, 'id'));
+		return ($this->auth_only_accounts[$index]['gecos'] === 'auth only account');
 	}
 
 	/**
 	 * Log message to email and text files
 	 *
+	 * @access private
 	 * @param string $msg
 	 */
-	private static function log_it($msg) {
+	private function log_it($msg) {
 		$msg = date('m/d/y H:i:s : ', time()) . $msg . PHP_EOL;
 		error_log($msg, 3, ERROR_LOG_FILE);
 
@@ -181,11 +267,13 @@ WHERE cu.user_group<>1 AND u.status<>1"
 	}
 } //END class make_accounts
 
-/** @static class to parse command line arguments */
+/**
+ * class to parse command line arguments
+ *
+ * @static
+ */
 class cli_args {
 
-    /** @var array holds all CLI argument flags and their values */
-	private static $args;
     /** @var string usage help message */
 	private static $help_usage      = "Usage: accounts.php [-h | --help] (-a | -t [term code] | -g)" . PHP_EOL;
     /** @var string short description help message */
@@ -212,25 +300,25 @@ HELP;
 	 * @return array consisting of process command (string) and possibly associated term code (string or null) or boolean false on error.
 	 */
 	public static function parse_args() {
-		self::$args = getopt('t:agrh', array('help'));
+		$args = getopt('t:agrh', array('help'));
 
 		switch(true) {
-		case array_key_exists('h', self::$args):
-		case array_key_exists('help', self::$args):
+		case array_key_exists('h', $args):
+		case array_key_exists('help', $args):
 			self::print_help();
 			return false;
-		case array_key_exists('a', self::$args):
+		case array_key_exists('a', $args):
 			return array("active", null);
-		case array_key_exists('t', self::$args):
-			return ("term", self::$args['t']);
-		case array_key_exists('g', self::$args):
+		case array_key_exists('t', $args):
+			return array("term", $args['t']);
+		case array_key_exists('g', $args):
 			//Guess current term
 			//(s)pring is month <= 5, (f)all is month >= 8, s(u)mmer are months 6 and 7.
 			//if ($month <= 5) {...} else if ($month >= 8) {...} else {...}
 			$month = intval(date("m", time()));
 			$year  = date("y", time());
 			return ($month <= 5) ? array("term", "s{$year}") : (($month >= 8) ? array("term", "f{$year}") : array("term", "u{$year}"));
-		case array_key_exists('r', self::$args):
+		case array_key_exists('r', $args):
 			return array("clean", null);
 		default:
 			print self::$help_usage . PHP_EOL;
