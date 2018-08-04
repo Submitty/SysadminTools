@@ -15,7 +15,7 @@
  *
  * "30 * * * * /var/local/submitty/bin/accounts.php"
  *
- * You may specify the term on the command line:
+ * You may specify on the command line:
  * "-t [term code]" make auth accounts for [term code].
  * "-g" can be used to guess the term by the server's calendar month and year.
  * "-a" will make auth accounts for all instructors and all active courses.
@@ -33,13 +33,12 @@ error_reporting(0);
 ini_set('display_errors', 0);
 
 //Database access
-define('DB_LOGIN',  'hsdbu');
-define('DB_PASSWD', 'hsdbu_pa55w0rd');
+define('DB_LOGIN',  'submitty_dbuser');
+define('DB_PASSWD', 'submitty_dbuser_pa55W0rd');
 define('DB_HOST',   'localhost');
-define('DB_NAME',   'submitty');
 
 //Location of accounts creation error log file
-define('ERROR_LOG_FILE', '/var/local/submitty/bin/accounts_errors.log');
+define('ERROR_LOG_FILE', 'error.log');
 
 //Where to email error messages so they can get more immediate attention.
 //Set to null to not send email.
@@ -102,6 +101,13 @@ class make_accounts {
 		exit(0);
 	}
 
+	public function __destruct() {
+        //Close DB connection, if it exists.
+        if (pg_connection_status($this->db_conn) === PGSQL_CONNECTION_OK) {
+            pg_close($this->db_conn);
+        }
+    }
+
 	/**
 	 * Initialize class properties, based on $this->workflow
 	 *
@@ -159,8 +165,9 @@ SQL;
 			break;
 		case 'clean':
 			$this->system_call = function($user) {
+				print "clean {$user}\n";
 				if ($this->check_auth_account($user)) {
-					system("/usr/sbin/deluser --quiet {$user} > /dev/null 2>&1");
+					system("/usr/sbin/deluser {$user}");
 				}
 			};
 			break;
@@ -199,6 +206,7 @@ SQL;
 	private function process() {
 		//Connect to database.  Quit on failure.
 		if ($this->db_conn() === false) {
+			$this->log_it("Submitty Auto Account Creation: Cannot connect to DB {$db_name}.");
 			return false;
 		}
 
@@ -210,9 +218,10 @@ SQL;
 
 		//Do workflow (iterate through each user returned by database)
 		while (($user = pg_fetch_result($result, null, 0)) !== false) {
+			print "clean {$user}\n";
 			$this->system_call($user);
 		}
-
+die;
 		//Signal success
 		return true;
 	}
@@ -223,20 +232,15 @@ SQL;
 	 * @access private
 	 * @return boolean TRUE on success, FALSE when there is a problem.
 	 */
-	private static function db_conn() {
+	private function db_conn() {
 		$db_user = DB_LOGIN;
 		$db_pass = DB_PASSWD;
 		$db_host = DB_HOST;
-		$db_name = DB_NAME;
-		self::$db_conn = pg_connect("host={$db_host} dbname={$db_name} user={$db_user} password={$db_pass}");
-		if (self::$db_conn === false) {
-			self::log_it("Submitty Auto Account Creation: Cannot connect to DB {$db_name}.");
+		$this->db_conn = pg_connect("host={$db_host} dbname=submitty user={$db_user} password={$db_pass} sslmode=prefer");
+		if (pg_connection_status($this->db_conn) !== PGSQL_CONNECTION_OK) {
+			$this->log_it(pg_last_error($this->db_conn));
 			return false;
 		}
-
-		register_shutdown_function(function() {
-			pg_close(self::$db_conn);
-		});
 
 		//Signal success
 		return true;
@@ -277,19 +281,20 @@ SQL;
 class cli_args {
 
     /** @var string usage help message */
-	private static $help_usage      = "Usage: accounts.php [-h | --help] (-a | -t [term code] | -g)" . PHP_EOL;
+	private static $help_usage      = "Usage: accounts.php [-h | --help] (-a |  -t [term code] | -g | -r)" . PHP_EOL;
     /** @var string short description help message */
 	private static $help_short_desc = "Read student enrollment from Submitty DB and create accounts for PAM auth." . PHP_EOL;
     /** @var string argument list help message */
 	private static $help_args_list  = <<<HELP
 Arguments
 -h --help       Show this help message.
--a              Process all active courses (irrespective of term code).
--r              Remove unused accounts (based on active courses)
--t [term code]  Process by specified term code.
--g              Process by guessed term code, based on calendar month and year.
+-a              Make auth accounts for all active courses.
+-t [term code]  Make auth accounts for specified term code.
+-g              Make auth accounts for guessed term code, based on calendar
+                month and year.
+-r              Remove auth accounts from inactive courses.
 
-NOTE: argument precedence order is -a, -t, -g, -r.  One is required.
+NOTE: Argument precedence order is -a, -t, -g, -r.  One is required.
 
 HELP;
 
