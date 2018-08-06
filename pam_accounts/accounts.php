@@ -122,48 +122,47 @@ class make_accounts {
 		$this->workflow  = $cli_args[0];
 		$this->db_params = $cli_args[1];
 
-		//Define database query based on workflow.
+		//Define database query AND system call based on workflow.
 		switch($this->workflow) {
 		case 'term':
 			$this->db_query = <<<SQL
 SELECT DISTINCT user_id FROM courses_users
 WHERE semester=$1
 SQL;
+			$this->system_call = function($user) {
+				system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
+			};
             break;
+
         case 'active':
         	$this->db_query = <<<SQL
-SELECT DISTINCT user_id
+SELECT DISTINCT cu.user_id
 FROM courses_users as cu
 LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semester
 WHERE cu.user_group=1 OR (cu.user_group<>1 AND c.status=1)
 SQL;
+			$this->system_call = function($user) {
+				system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
+			};
 			break;
-		case 'clean':
-			$this->db_query = <<<SQL
-SELECT DISTINCT user_id
-FROM courses_users as cu
-LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semseter
-WHERE cu.user_group<>1 AND u.status<>1
-SQL;
-			break;
-		default:
-			$this->log_it("Define $this->db_query: Invalid $this->workflow");
-			return false;
-		}
 
-		//Define system call based on workflow.
-		switch($this->workflow) {
-		case 'term':
-			$this->system_call = function($user) {
-				system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
-			};
-			break;
-		case 'active':
-			$this->system_call = function($user) {
-				system("/usr/sbin/adduser --quiet --home /tmp --gecos 'auth only account' --no-create-home --disabled-password --shell /usr/sbin/nologin {$user} > /dev/null 2>&1");
-			};
-			break;
 		case 'clean':
+		//'clean' workflow requires contents of the /etc/passwd file.
+		$this->auth_only_accounts = array();
+			if (($fh = fopen('/etc/passwd', 'r')) === false) {
+				$this->logit("Cannot open '/etc/passwd' to check for auth only accounts.");
+				return false;
+			}
+			while (($row = fgetcsv($fh, 0, ':')) !== false) {
+				array_push($this->auth_only_accounts, array('id' => $row[0], 'gecos' => $row[4]));
+			}
+			fclose($fh);
+			$this->db_query = <<<SQL
+SELECT DISTINCT cu.user_id
+FROM courses_users as cu
+LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semester
+WHERE cu.user_group<>1 AND c.status<>1
+SQL;
 			$this->system_call = function($user) {
 				print "clean {$user}\n";
 				if ($this->check_auth_account($user)) {
@@ -171,26 +170,10 @@ SQL;
 				}
 			};
 			break;
+
 		default:
-			$this_>log_it("Define $this->system_call: Invalid $this->workflow");
+			$this->log_it("Invalid $this->workflow during init()");
 			return false;
-		}
-
-		//Certain workflows require the contents of the passwd file.
-		switch($this->workflow) {
-		case 'clean':
-			$this->auth_only_accounts = array();
-			if (($fh = fopen('/etc/passwd', 'r')) === false) {
-				$this->logit("Cannot open '/etc/passwd' to check for auth only accounts.");
-				return false;
-			}
-
-			while (($row = fgetcsv($fh, 0, ':')) !== false) {
-				array_push($this->auth_only_accounts, array('id' => $row[0], 'gecos' => $row[4]));
-			}
-
-			fclose($fh);
-			break;
 		}
 
 		//Signal success
@@ -205,7 +188,7 @@ SQL;
 	 */
 	private function process() {
 		//Connect to database.  Quit on failure.
-		if ($this->db_conn() === false) {
+		if ($this->db_connect() === false) {
 			$this->log_it("Submitty Auto Account Creation: Cannot connect to DB {$db_name}.");
 			return false;
 		}
@@ -232,7 +215,7 @@ die;
 	 * @access private
 	 * @return boolean TRUE on success, FALSE when there is a problem.
 	 */
-	private function db_conn() {
+	private function db_connect() {
 		$db_user = DB_LOGIN;
 		$db_pass = DB_PASSWD;
 		$db_host = DB_HOST;
