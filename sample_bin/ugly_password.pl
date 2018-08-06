@@ -27,11 +27,12 @@ exit 0;
 
 # Recursive subroutine to generate a random char and build the ugly password.
 sub build_ugly_password {
+	# Read a random byte and scale it to range 33 - 126.
 	read $fh, $byte, 1;
 	$val = (unpack 'C', $byte) % 94 + 33;
 
 	# Single quote, double quote, and backtick chars are disqualified.
-	# Prevents edge cases for copy/pasting ugly passwords to cli.
+	# Prevents some edge cases for copy/pasting ugly passwords to psql or cli.
 	if ($val != 34 && $val != 39 && $val != 96) {
 		# Character qualifies, append it to password.
 		$output .= chr $val;
