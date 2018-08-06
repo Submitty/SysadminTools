@@ -4,9 +4,9 @@
 # Date: August 6, 2018
 # Author: Peter Bailie
 #
-# This will output to STDOUT a randomly generated 32 character ugly password
-# using the printable ASCII character range of 33 - 126.  Passwords are based
-# on /dev/random to ensure reliable pseudo-random entropy.
+# This will output to STDOUT a randomly generated ugly password using the
+# printable ASCII character range of 33 - 126.  Passwords are based on
+# /dev/random to ensure reliable pseudo-random entropy.
 #
 # /dev/random is blocking, so there may be a delay in output when the seed pool
 # needs to be refreshed.
@@ -15,15 +15,30 @@ use strict;
 use warnings;
 use autodie;
 
-# Get 32 random bytes from /dev/random
-open my $fh, '<:raw', '/dev/random';
-read $fh, my $bytes, 32;
+my $PW_LENGTH = 32;  # length of the ugly password in characters.
+my ($fh, $byte, $val, $output);
+
+$output = "";  # password output
+open $fh, '<:raw', '/dev/random';
+build_ugly_password();
 close $fh;
-
-# Convert each byte to a printable ascii char (ascii 33 - 126).
-my $output = "";
-foreach my $i (0..(length $bytes) - 1) {
-	$output .=  chr((unpack 'C', substr $bytes, $i, 1) % 94 + 33);
-}
-
 print STDOUT $output;
+exit 0;
+
+# Recursive subroutine to generate a random char and build the ugly password.
+sub build_ugly_password {
+	read $fh, $byte, 1;
+	$val = (unpack 'C', $byte) % 94 + 33;
+
+	# Single quote, double quote, and backtick chars are disqualified.
+	# Prevents edge cases for copy/pasting ugly passwords to cli.
+	if ($val != 34 && $val != 39 && $val != 96) {
+		# Character qualifies, append it to password.
+		$output .= chr $val;
+	}
+
+	# Go again, if needed.
+	if (length $output < $PW_LENGTH) {
+		build_ugly_password();
+	}
+}
