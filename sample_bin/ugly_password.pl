@@ -20,7 +20,7 @@ open my $fh, '<:raw', '/dev/random';
 read $fh, my $bytes, 32;
 close $fh;
 
-#Convert each byte to a printable ascii char (ascii 33 - 126).
+# Convert each byte to a printable ascii char (ascii 33 - 126).
 my $output = "";
 foreach my $i (0..(length $bytes) - 1) {
 	$output .=  chr((unpack 'C', substr $bytes, $i, 1) % 94 + 33);
