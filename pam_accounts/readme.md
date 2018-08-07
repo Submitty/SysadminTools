@@ -40,8 +40,6 @@ will follow the pattern of TYY, where
 - YY is the two digit year
 - e.g. April 15, 2018 will correspond to "s18" (Spring 2018).
 
-`-g` and `-t` are mutually exclusive.
-
 ---
 
 accounts.php is intended to be run as a cron job.
