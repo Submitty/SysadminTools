@@ -1,15 +1,26 @@
 # PAM Authentication Accounts Script
-Readme June 26, 2018
+Readme August 7, 2018
 
 ### accounts.php
 This is a command line script that will read the submitty 'master' database and
-create PAM authentication accounts, password checked by Kerberos, for all
-Submitty users.  *This script is not used with database authentication.*
+create authentication accounts for all Submitty users for PAM.
+
+**This script is not used with Submitty database authentication.**
 
 ---
 
-The semester must be either manually specified as command line argument
-`-t`, or guessed by calendar month and year with command line argument `-g`.
+One of the following command line parameters is required.  They are listed
+in order of precedence.  e.g. `-a` overrides `-t`.
+
+- `-a` Create authentication accounts for all instructor users of all courses
+and student, grader, and mentor users in all *active* courses, regardless of
+term.
+- `-t [term code]` Specify which term to create authentication accounts.
+- `-g` Guess the term code, based on calendar month and year, to create
+authentication accounts.
+- `-r` Remove student, grader, and mentor authentication accounts for all
+*inactive* courses, regardless of term code.  Instructor authentication accounts
+are not removed.
 
 For example:
 
@@ -25,7 +36,7 @@ will follow the pattern of TYY, where
 - T is the term
   - **s** is for Spring (Jan - May)
   - **u** is for Summer (Jun - Jul)
-  - **f** is for Fall (Aug-Dec)
+  - **f** is for Fall (Aug - Dec)
 - YY is the two digit year
 - e.g. April 15, 2018 will correspond to "s18" (Spring 2018).
 
