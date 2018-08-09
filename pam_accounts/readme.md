@@ -15,9 +15,10 @@ in order of precedence.  e.g. `-a` overrides `-t`.
 - `-a` Create authentication accounts for all instructor users of all courses
 and student, grader, and mentor users in all *active* courses, regardless of
 term.
-- `-t [term code]` Specify which term to create authentication accounts.
+- `-t [term code]` Specify which term to create authentication accounts.  All
+course enrollments of `[term code]` are processed regardless of course status.
 - `-g` Guess the term code, based on calendar month and year, to create
-authentication accounts.
+authentication accounts.  Otherwise behaves like `-t`.
 - `-r` Remove student, grader, and mentor authentication accounts for all
 *inactive* courses, regardless of term code.  Instructor authentication accounts
 are not removed.
