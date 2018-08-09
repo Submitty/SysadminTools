@@ -29,13 +29,12 @@
  * @author Peter Bailie, Systems Programmer (RPI dept of computer science)
  */
 
-error_reporting(E_ALL);
-ini_set('display_errors', 'stderr');
+error_reporting(null);
+ini_set('display_errors', '0');
 
 //Database access
 define('DB_LOGIN',  'submitty_dbuser');
-//define('DB_PASSWD', 'submitty_dbuser_pa55W0rd');
-define('DB_PASSWD', 'submitty_dbuser');
+define('DB_PASSWD', 'submitty_dbuser_pa55W0rd');
 define('DB_HOST',   'localhost');
 
 //Location of accounts creation error log file
@@ -43,8 +42,7 @@ define('ERROR_LOG_FILE', 'accounts_script_error.log');
 
 //Where to email error messages so they can get more immediate attention.
 //Set to null to not send email.
-//define('ERROR_EMAIL', 'sysadmins@lists.myuniversity.edu');
-define('ERROR_EMAIL', null);
+define('ERROR_EMAIL', 'sysadmins@lists.myuniversity.edu');
 
 
 /* SUGGESTED SETTINGS FOR TIMEZONES IN USA -------------------------------------
@@ -68,20 +66,20 @@ date_default_timezone_set('America/New_York');
 //Start process
 new make_accounts();
 
-/** class constructor manages script workflow */
+/** Class constructor manages script workflow */
 class make_accounts {
 
-	/** @var resource pgsql database connection */
+	/** @static @var resource pgsql database connection */
 	private static $db_conn;
-	/** @var string what workflow to process */
+	/** @static @var string what workflow to process */
 	private static $workflow;
-	/** @var array paramater list for DB query */
+	/** @static @var array paramater list for DB query */
 	private static $db_params;
-	/** @var string DB query to be run */
+	/** @static @var string DB query to be run */
 	private static $db_query;
-	/** @var string function to call to process $workflow */
+	/** @static @var string function to call to process $workflow */
 	private static $workflow_function;
-	/** @var array user_id list of 'auth only accounts', read from /etc/passwd */
+	/** @static @var array user_id list of 'auth only accounts', read from /etc/passwd */
 	private static $auth_only_accounts;
 
 	public function __construct() {
