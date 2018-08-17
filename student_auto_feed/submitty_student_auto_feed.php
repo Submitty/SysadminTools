@@ -245,7 +245,12 @@ class submitty_student_auto_feed {
          * be deduplicated.
          * ------------------------------------------------------------------ */
 
-        deduplicate::deduplicate_data(self::$data['users'], 'user_id');
+        if ($this->deduplicate('users', 'user_id') === false) {
+
+            //Deduplication didn't work.  We can't proceed.
+            $this->log_it("Users data deduplication encountered a problem.  Aborting.");
+            $validation_flag = false;
+        }
 
         //TRUE:  Data validation passed and validated data set will have at least 1 row per table.
         //FALSE: Either data validation failed or at least one table is an empty set.
@@ -392,6 +397,38 @@ SQL;
 
         $csv_data = file("{$host}{$csv_file}", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         return true;
+    }
+
+
+    /**
+     * deduplicate data set by a specific column
+     *
+     * Users table in "Submitty" database must have a unique student per row.
+     * per row.  Students in multiple courses may have multiple entries where
+     * where deduplication is necessary.
+     *
+     * @access private
+     * @param array  $subset  data subset to be deduplicated
+     * @param mixed  $key  column by which rows are deduplicated
+     * @return boolean TRUE when deduplication is completed.  FALSE when sorting fails.
+     */
+    private function deduplicate($subset = 'users', $key = 'user_id') {
+
+        // First, sort data subset.  On success, remove duplicate rows identified by $key.
+        if (usort(self::$data[$subset], function($a, $b) use ($key) { return strcmp($a[$key], $b[$key]); }; )) {
+            $count = count(self::$data[$subset]);
+            for ($i = 1; $i < $count; $i++) {
+                if (self::$data[$subset][$i][$key] === self::$data[$subset][$i-1][$key]) {
+                    unset(self::$data[$subset][$i-1]);
+                }
+            }
+
+            //Indicate that deduplication is done.
+            return true;
+        }
+
+        //Something went wrong during sort.  Abort and indicate failure.
+        return false;
     }
 
     /**
@@ -684,100 +721,6 @@ SQL;
     }
 }
 
-/** static class for deduplicating data */
-class deduplicate {
-
-    /**
-     * deduplicate data by a specific column
-     *
-     * Users table in "Submitty" database must have a unique student per row.
-     * per row.  Students in multiple courses may have multiple entries where
-     * where deduplication is necessary.
-     *
-     * @access public
-     * @param array  $arr  array to be deduplicated, passed by reference
-     * @param mixed  $key  column by which rows are deduplicated
-     */
-    public static function deduplicate_data(&$arr, $key='user_id') {
-
-        self::merge_sort($arr, $key);
-        self::dedup($arr, $key);
-    }
-
-    /**
-     * merge sort
-     *
-     * PHP's built in sort is quicksort.  It is not stable and cannot sort rows
-     * by column, and therefore is not sufficient.  Data will be sorted to be
-     * deduplicated.
-     *
-     * @access private
-     * @param array  $arr  array of data rows to be sorted
-     * @param mixed  $key  column by which rows are sorted
-     */
-    private static function merge_sort(&$arr, $key) {
-
-        //Arrays of size < 2 require no action.
-        if (count($arr) < 2) {
-            return;
-        }
-
-        //Split the array in half
-        $halfway = count($arr) / 2;
-        $arr1 = array_slice($arr, 0, $halfway);
-        $arr2 = array_slice($arr, $halfway);
-
-        //Recurse to sort the two halves
-        self::merge_sort($arr1, $key);
-        self::merge_sort($arr2, $key);
-
-        //If all of $array1 is <= all of $array2, just append them.
-        if (strcasecmp(end($arr1)[$key], $arr2[0][$key]) < 1) {
-            $arr = array_merge($arr1, $arr2);
-            return;
-        }
-
-        //Merge the two sorted arrays into a single sorted array
-        $arr = array();
-        $i = 0;
-        $j = 0;
-        while ($i < count($arr1) && $j < count($arr2)) {
-            if (strcasecmp($arr1[$i][$key], $arr2[$j][$key]) < 1) {
-                $arr[] = $arr1[$i];
-                $i++;
-            } else {
-                $arr[] = $arr2[$j];
-                $j++;
-            }
-        }
-
-        //Merge the remainder
-        for (/* no var init */; $i < count($arr1); $i++) {
-            $arr[] = $arr1[$i];
-        }
-
-        for (/* no var init */; $j < count($arr2); $j++) {
-            $arr[] = $arr2[$j];
-        }
-    }
-
-    /**
-     * remove duplicated student rows
-     *
-     * @access private
-     * @param array  $arr  array of data rows to be deduplicated
-     * @param mixed  $key  column by which rows are deduplicated
-     */
-    private static function dedup(&$arr, $key) {
-
-        $count = count($arr);
-        for ($i = 1; $i < $count; $i++) {
-            if ($arr[$i][$key] === $arr[$i-1][$key]) {
-                unset($arr[$i-1]);
-            }
-        }
-    }
-}
 
 /** @static class to parse command line arguments */
 class cli_args {
