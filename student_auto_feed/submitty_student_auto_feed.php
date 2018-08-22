@@ -41,7 +41,7 @@ class submitty_student_auto_feed {
     public function __construct() {
 
         //Important: Make sure we are running from CLI
-        if (PHP_SAPI != "cli") {
+        if (PHP_SAPI !== "cli") {
             die("This is a command line tool.");
         }
 
@@ -247,7 +247,7 @@ class submitty_student_auto_feed {
 
         if ($this->deduplicate('users', 'user_id') === false) {
 
-            //Deduplication didn't work.  We can't proceed.
+            //Deduplication didn't work.  We can't proceed (set validation flag to false).
             $this->log_it("Users data deduplication encountered a problem.  Aborting.");
             $validation_flag = false;
         }
@@ -415,7 +415,7 @@ SQL;
     private function deduplicate($subset = 'users', $key = 'user_id') {
 
         // First, sort data subset.  On success, remove duplicate rows identified by $key.
-        if (usort(self::$data[$subset], function($a, $b) use ($key) { return strcmp($a[$key], $b[$key]); }; )) {
+        if (usort(self::$data[$subset], function($a, $b) use ($key) { return strcmp($a[$key], $b[$key]); })) {
             $count = count(self::$data[$subset]);
             for ($i = 1; $i < $count; $i++) {
                 if (self::$data[$subset][$i][$key] === self::$data[$subset][$i-1][$key]) {
