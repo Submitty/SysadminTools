@@ -36,7 +36,7 @@ $json_str = file_get_contents(DB_CONFIG_PATH);
 $db_config = json_decode($json_str, true);
 
 //Connect to master DB.
-$db_conn = pg_connect("dbname=submitty host={$db_config['database_host']} user={$db_config['database_user']} password={$db_config['database_password']}");
+$db_conn = pg_connect("dbname=submitty host={$db_config['database_host']} user={$db_config['database_user']} password={$db_config['database_password']} sslmode=prefer");
 if (pg_connection_status($db_conn) !== PGSQL_CONNECTION_OK) {
 	exit(sprintf("ERROR: Could not establish connection to Submitty Master DB%sCheck configuration at %s%s", PHP_EOL, DB_CONFIG_PATH, PHP_EOL));
 }
