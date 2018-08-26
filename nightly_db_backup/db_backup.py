@@ -5,7 +5,7 @@
 :file:     db_backup.py
 :language: python3
 :author:   Peter Bailie (Systems Programmer, Dept. of Computer Science, RPI)
-:date:     May 22 2018
+:date:     August 22 2018
 
 This script will take backup dumps of each individual Submitty course
 database.  This should be set up by a sysadmin to be run on the Submitty
@@ -31,16 +31,17 @@ university's Submitty database and file system.
 
 import argparse
 import datetime
+import json
 import os
 import re
 import subprocess
 import sys
 
-# CONFIGURATION
-DB_HOST    = 'submitty.cs.myuniversity.edu'
-DB_USER    = 'hsdbu'
-DB_PASS    = 'DB.p4ssw0rd'  # CHANGE THIS!  DO NOT USE 'DB.p4ssw0rd'
-DUMP_PATH  = '/var/local/submitty-dumps'
+# DATABASE CONFIGURATION PATH
+DB_CONFIG_PATH = '/usr/local/submitty/config/database.json'
+
+# WHERE DUMP FILES ARE WRITTEN
+DUMP_PATH = '/var/local/submitty/submitty-dumps'
 
 def delete_obsolete_dumps(working_path, expiration_stamp):
 	"""
@@ -110,6 +111,14 @@ def main():
 		semester = 's' + year if today.month <= 5 else ('f' + year if today.month >= 8 else 'u' + year)
 	else:
 		semester = args.t
+
+	# GET DATABASE CONFIG FROM SUBMITTY
+	fh = open(DB_CONFIG_PATH, "r")
+	db_config = json.load(fh)
+	fh.close()
+	DB_HOST = db_config['database_host']
+	DB_USER = db_config['database_user']
+	DB_PASS = db_config['database_password']
 
 	# GET ACTIVE COURSES FROM 'MASTER' DB
 	try:

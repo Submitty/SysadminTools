@@ -32,10 +32,8 @@
 error_reporting(null);
 ini_set('display_errors', '0');
 
-//Database access
-define('DB_LOGIN',  'submitty_dbuser');
-define('DB_PASSWD', 'submitty_dbuser_pa55W0rd');
-define('DB_HOST',   'localhost');
+//Database access configuration from Submitty
+define('DB_CONFIG_PATH', '/usr/local/submitty/config/database.json');
 
 //Location of accounts creation error log file
 define('ERROR_LOG_FILE', 'accounts_script_error.log');
@@ -86,6 +84,11 @@ class make_accounts {
 		//IMPORTANT: This script needs to be run as root!
 		if (posix_getuid() !== 0) {
 			exit("This script must be run as root." . PHP_EOL);
+		}
+
+		//This is run from the command line, not a webpage.
+		if (PHP_SAPI !== 'cli') {
+			exit("This script must be run from the command line." . PHP_EOL);
 		}
 
 		//Init class properties, quit on error.
@@ -211,10 +214,13 @@ SQL;
 	 * @return boolean TRUE on success, FALSE when there is a problem.
 	 */
 	private function db_connect() {
-		$db_user = DB_LOGIN;
-		$db_pass = DB_PASSWD;
-		$db_host = DB_HOST;
-		self::$db_conn = pg_connect("host={$db_host} dbname=submitty user={$db_user} password={$db_pass} sslmode=prefer");
+		$json_str = file_get_contents(DB_CONFIG_PATH);
+		$db_config = json_decode($json_str, true);
+		$db_host = $db_config['database_host'];
+		$db_user = $db_config['database_user'];
+		$db_pass = $db_config['database_password'];
+
+		self::$db_conn = pg_connect("dbname=submitty host={$db_host} user={$db_user} password={$db_pass} sslmode=prefer");
 		if (pg_connection_status(self::$db_conn) !== PGSQL_CONNECTION_OK) {
 			$this->log_it(pg_last_error(self::$db_conn));
 			return false;
