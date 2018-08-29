@@ -44,16 +44,16 @@ DB_CONFIG_PATH = '/usr/local/submitty/config/database.json'
 # WHERE DUMP FILES ARE WRITTEN
 DUMP_PATH = '/var/local/submitty/submitty-dumps'
 
-def delete_obsolete_dumps(working_path, monthly_retention_stamp, expiration_stamp):
+def delete_obsolete_dumps(working_path, monthly_retention, expiration_date):
 	"""
 	Recurse through folders/files and delete any obsolete dump files
 
-	:param working_path:     path to recurse through
-	:param monthly_retention day of month that dump is always preserved (val < "01" when disabled)
-	:param expiration_stamp: date to begin purging old dump files
-	:type working_path:      string
-	:type monthly_retention  string
-	:type expiration_stamp:  string
+	:param working_path:      path to recurse through
+	:param monthly_retention: day of month that dump is always preserved (val < 1 when disabled)
+	:param expiration_date:   date to begin purging old dump files
+	:type working_path:       string
+	:type monthly_retention:  integer
+	:type expiration_date:    datetime.date object
 	"""
 
 	# Filter out '.', '..', and any "hidden" files/directories.
@@ -65,23 +65,25 @@ def delete_obsolete_dumps(working_path, monthly_retention_stamp, expiration_stam
 	for file in files_list:
 		if os.path.isdir(file):
 			# If the file is a folder, recurse
-			delete_obsolete_dumps(file, monthly_retention_stamp, expiration_stamp)
+			delete_obsolete_dumps(file, monthly_retention, expiration_date)
 		else:
-			# File date was concat'ed into the file's name.  Use regex to isolate date from full path.
-			# e.g. "/var/local/submitty-dumps/s18/cs1000/180424_s18_cs1000.dbdump"
-			#      The date substring can be located with high confidence by looking for:
-			#        - final token of the full path (the actual file name)
-			#        - file name consists of three tokens delimited by '_' chars
-			#          - first token is exactly 6 digits, the date stamp.
-			#          - second token is the semester code, at least one 'word' char
-			#          - third token is the course code, at least one 'word' char
-			#          - filename always ends in ".dbdump"
-			#        - then take substring [0:6] to get "180424".
-			match = re.search('(\d{6}_\w+_\w+\.dbdump)$', file)
-			if match is not None:
-				file_date_stamp = match.group(0)[0:6]
-				if file_date_stamp <= expiration_stamp and monthly_retention_stamp != file_date_stamp[4:6]:
-					os.remove(file)
+			# Determine file's date from its filename
+			filename = file.split('/')[-1]
+			datestamp = filename.split('_')[0]
+			year, month, day = map(int, datestamp.split('-'))
+			file_date = datetime.date(year, month, day)
+
+			# Conditions to NOT delete old file:
+			if file_date > expiration_date:
+				pass
+			elif file_date.day == monthly_retention:
+				pass
+			# A month can be as few as 28 days, but we NEVER skip months even when "-m" is 29, 30, or 31.
+			elif monthly_retention > 28 and file_date.day == calendar.monthrange(file_date.year, file_date.month)[1]:
+				pass
+			else:
+				os.remove(file)
+
 
 def main():
 	""" Main """
@@ -94,7 +96,7 @@ def main():
 	# Note that -t and -g are different args and mutually exclusive
 	parser = argparse.ArgumentParser(description='Dump all Submitty databases for a particular academic term.', prefix_chars='-', add_help=True)
 	parser.add_argument('-e', action='store', type=int, default=0, help='Set number of days expiration of older dumps (default: no expiration).', metavar='days')
-	parser.add_argument('-m', action='store', type=int, default=0, choices=range(0,29), help='Day of month to ALWAYS retain a dumpfile (default: no monthly retention).', metavar='day of month')
+	parser.add_argument('-m', action='store', type=int, default=0, choices=range(0,32), help='Day of month to ALWAYS retain a dumpfile (default: no monthly retention).', metavar='day of month')
 	group = parser.add_mutually_exclusive_group(required=True)
 	group.add_argument('-t', action='store', type=str, help='Set the term code.', metavar='term code')
 	group.add_argument('-g', action='store_true', help='Guess term code based on calender month and year.')
@@ -102,10 +104,9 @@ def main():
 	args = parser.parse_args()
 
 	# Get current date -- needed throughout the script, but also used when guessing default term code.
-	# (today.year % 100) determines the two digit year.	 e.g. '2017' -> '17'
 	today		= datetime.date.today()
-	year		= str(today.year % 100)
-	today_stamp = '{:0>2}{:0>2}{:0>2}'.format(year, today.month, today.day)
+	year		= str(today.year)
+	today_stamp = today.isoformat()
 
 	# PARSE COMMAND LINE ARGUMENTS
 	expiration = args.e
@@ -118,7 +119,7 @@ def main():
 		semester = args.t
 
 	# MONTHLY RETENTION DATE
-	monthly_retention_stamp = "{:0>2}".format(args.m)
+	monthly_retention = args.m
 
 	# GET DATABASE CONFIG FROM SUBMITTY
 	fh = open(DB_CONFIG_PATH, "r")
@@ -178,12 +179,11 @@ def main():
 	# DETERMINE EXPIRATION DATE (to delete obsolete dump files)
 	# (do this BEFORE recursion so it is not calculated recursively n times)
 	if expiration > 0:
-		expiration_date  = datetime.date.fromordinal(today.toordinal() - expiration)
-		expiration_stamp = '{:0>2}{:0>2}{:0>2}'.format(expiration_date.year % 100, expiration_date.month, expiration_date.day)
+		expiration_date = datetime.date.fromordinal(today.toordinal() - expiration)
 		working_path = "{}/{}".format(DUMP_PATH, semester)
 
 		# RECURSIVELY CULL OBSOLETE DUMPS
-		delete_obsolete_dumps(working_path, monthly_retention_stamp, expiration_stamp)
+		delete_obsolete_dumps(working_path, monthly_retention, expiration_date)
 
 if __name__ == "__main__":
 	main()
