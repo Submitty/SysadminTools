@@ -84,7 +84,6 @@ def delete_obsolete_dumps(working_path, monthly_retention, expiration_date):
 			else:
 				os.remove(file)
 
-
 def main():
 	""" Main """
 
@@ -105,7 +104,7 @@ def main():
 
 	# Get current date -- needed throughout the script, but also used when guessing default term code.
 	today		= datetime.date.today()
-	year		= str(today.year)
+	year		= today.strftime("%y")
 	today_stamp = today.isoformat()
 
 	# PARSE COMMAND LINE ARGUMENTS
