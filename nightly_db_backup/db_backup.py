@@ -68,6 +68,7 @@ def delete_obsolete_dumps(working_path, monthly_retention, expiration_date):
 			delete_obsolete_dumps(file, monthly_retention, expiration_date)
 		else:
 			# Determine file's date from its filename
+			# Note: datetime.date.fromisoformat() doesn't exist in Python 3.6 or earlier.
 			filename = file.split('/')[-1]
 			datestamp = filename.split('_')[0]
 			year, month, day = map(int, datestamp.split('-'))
@@ -78,12 +79,12 @@ def delete_obsolete_dumps(working_path, monthly_retention, expiration_date):
 				pass
 			elif file_date.day == monthly_retention:
 				pass
-			# A month can be as few as 28 days, but we NEVER skip months even when "-m" is 29, 30, or 31.
-			elif monthly_retention > 28 and file_date.day == calendar.monthrange(file_date.year, file_date.month)[1]:
+			# A month can be as few as 28 days, but we NEVER skip months even when "-m" is 28, 29, 30, or 31.
+			elif monthly_retention > 28 and (file_date.day == calendar.monthrange(file_date.year, file_date.month)[1] and file_date.day <= monthly_retention):
 				pass
 			else:
-				os.remove(file)
-
+#				os.remove(file)
+				print("remove " + file)
 def main():
 	""" Main """
 
