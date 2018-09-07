@@ -1,0 +1,2 @@
+# pass in user followed by course
+adduser $1 course_$2_tas_www

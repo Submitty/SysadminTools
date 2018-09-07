@@ -1,0 +1,2 @@
+# pass in semester, course, section
+psql -d submitty_$1_$2 -c "insert into sections_registration(sections_registration_id) values ($3);"
