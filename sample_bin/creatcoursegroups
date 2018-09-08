@@ -1,0 +1,7 @@
+# pass in course 
+addgroup course_$1
+addgroup course_$1_tas_www
+adduser submitty_php course_$1_tas_www
+adduser submitty_daemon course_$1_tas_www
+adduser submitty_cgi course_$1_tas_www
+addgroup course_$1_archive

@@ -1,0 +1,5 @@
+# pass in userid followed by course
+adduser $1 course_$2
+adduser $1 course_$2_tas_www
+adduser $1 course_$2_archive
+adduser $1 submitty_course_builders
