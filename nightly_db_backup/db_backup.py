@@ -83,8 +83,8 @@ def delete_obsolete_dumps(working_path, monthly_retention, expiration_date):
 			elif monthly_retention > 28 and (file_date.day == calendar.monthrange(file_date.year, file_date.month)[1] and file_date.day <= monthly_retention):
 				pass
 			else:
-#				os.remove(file)
-				print("remove " + file)
+				os.remove(file)
+
 def main():
 	""" Main """
 
