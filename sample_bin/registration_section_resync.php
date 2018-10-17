@@ -124,7 +124,7 @@ class registration_section_resync {
 				//Next retrieve registration sections in course DB
 				$res = pg_query(self::$db_course_conn, "SELECT sections_registration_id FROM sections_registration");
 				if ($res === false) {
-					fprintf("Error reading registration sections from course DB: %s.%sSkipping %s %s.%s", $dbname, PHP_EOL, $term, $course, PHP_EOL);
+					fprintf(STDERR, "Error reading registration sections from course DB: %s.%sSkipping %s %s.%s", $dbname, PHP_EOL, $term, $course, PHP_EOL);
 					continue;
 				}
 				$course_registration_sections = pg_fetch_all_columns($res, 0);
@@ -137,7 +137,7 @@ class registration_section_resync {
 				foreach($sync_list as $section) {
 					$res = pg_query_params($self::$db_master_conn, "INSERT INTO courses_registration_sections (semester, course, registration_section_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", array($term, $course, $section));
 					if ($res === false) {
-						fprintf("Error during re-sync procedure: %s %s section %s.%s.This section could not be synced.%s", $term, $course, $section, PHP_EOL, PHP_EOL);
+						fprintf(STDERR, "Error during re-sync procedure: %s %s section %s.%s.This section could not be synced.%s", $term, $course, $section, PHP_EOL, PHP_EOL);
 						continue;
 					}
 				}
