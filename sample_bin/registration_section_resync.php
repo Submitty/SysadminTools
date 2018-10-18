@@ -22,6 +22,7 @@ define ('DB_CONFIG_PATH', '/usr/local/submitty/config/database.json');
 
 //Run script
 new registration_section_resync();
+printf("Re-sync process finished.%s", PHP_EOL);
 exit(0);
 
 class registration_section_resync {
@@ -114,7 +115,7 @@ class registration_section_resync {
 				}
 
 				//First retrieve registration sections in master DB
-				$res = pg_query_params(self::$db_master_conn, "SELECT registration_section_id FROM courses_registration_sections WHERE semester=$1 AND course=$2", array($term, $coourse));
+				$res = pg_query_params(self::$db_master_conn, "SELECT registration_section_id FROM courses_registration_sections WHERE semester=$1 AND course=$2", array($term, $course));
 				if ($res === false) {
 					fprintf(STDERR, "Error reading registration sections from master DB: %s %s.%sSkipping %s %s.%s", $term, $course, PHP_EOL, $term, $course, PHP_EOL);
 					continue;
@@ -130,37 +131,22 @@ class registration_section_resync {
 				$course_registration_sections = pg_fetch_all_columns($res, 0);
 
 				//Get the differences of both lists (a registration section in either list, but not the other).
-				$sync_list = array_diff($course_registration_sections, $master_registration_section);
-				$sync_list = array_merge($sync_list, array_diff($master_registration_section, $course_registration_sections));
+				$sync_list = array_diff($course_registration_sections, $master_registration_sections);
+				$sync_list = array_merge($sync_list, array_diff($master_registration_sections, $course_registration_sections));
+
+				var_dump($sync_list); die;
 
 				//INSERT $sync_list to master DB, ON CONFLICT DO NOTHING (prevents potential PK violations).  We're using DB schema trigger to complete resync.
 				foreach($sync_list as $section) {
-					$res = pg_query_params($self::$db_master_conn, "INSERT INTO courses_registration_sections (semester, course, registration_section_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING", array($term, $course, $section));
+					$res = pg_query_params($self::$db_master_conn, "INSERT INTO courses_registration_sections (semester, course, registration_section_id) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT courses_registration_sections_pkey DO UPDATE SET semester=$1, course=$2, registration_section_id=$3", array($term, $course, $section));
 					if ($res === false) {
 						fprintf(STDERR, "Error during re-sync procedure: %s %s section %s.%s.This section could not be synced.%s", $term, $course, $section, PHP_EOL, PHP_EOL);
 						continue;
 					}
+
+					printf("Sync complete for %s %s%s", $term, $course, PHP_EOL);
 				}
 			}
 		}
 	}
-
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
