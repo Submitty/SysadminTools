@@ -1,7 +1,8 @@
 #!/usr/bin/env perl
 
 # File: ugly_password.pl
-# Date: August 7, 2018
+# Original Date: August 7, 2018
+# Updated: October 25, 2018
 # Author: Peter Bailie
 #
 # This will output to STDOUT a randomly generated ugly password using the
@@ -18,6 +19,10 @@ use autodie;
 my $PW_LENGTH = 32;  # length of the ugly password in characters.
 my ($fh, $byte, $val, $output);
 
+# These chars not allowed to help prevent some edge cases for copy/pasting to
+# psql, cli, and PHP.  Indexed by ASCII value.
+my %chars_not_allowed = (34, "\"", 37, "%", 39, "'", 61, "=", 92, "\\", 96, "`");
+
 open $fh, '<:raw', '/dev/random';
 $output = "";  # password output
 while (length $output < $PW_LENGTH) {
@@ -25,9 +30,8 @@ while (length $output < $PW_LENGTH) {
 	read $fh, $byte, 1;
 	$val = (unpack 'C', $byte) % 94 + 33;
 
-	# Single quote, double quote, and backtick chars are disqualified.
-	# Prevents some edge cases for copy/pasting ugly passwords to psql or cli.
-	if ($val != 34 && $val != 39 && $val != 96) {
+	# Make sure random $val qualifies as a char (not in the "not allowed" hash)
+	if  (!exists $chars_not_allowed{$val}) {
 		# Character qualifies, append it to password.
 		$output .= chr $val;
 	}
