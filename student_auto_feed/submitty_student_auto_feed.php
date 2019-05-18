@@ -151,9 +151,18 @@ class submitty_student_auto_feed {
             }
 
             //BEGIN VALIDATION
-            $course = strtolower($row[COLUMN_COURSE_PREFIX]) . $row[COLUMN_COURSE_NUMBER];
-            $section = intval($row[COLUMN_SECTION]);  //intval($str) returns zero when $str is not integer.
+            //Invalidate any row that doesn't have requisite number of fields.  Do this, first.
+            //Invalidation will disqualify the data file to protect DB data integrity.
             $num_fields = count($row);
+            if ($num_fields !== $validate_num_fields) {
+                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.");
+                $validation_flag = false;
+                continue;
+            }
+
+            $course = strtolower($row[COLUMN_COURSE_PREFIX]) . $row[COLUMN_COURSE_NUMBER];
+            // Remove any leading zeroes from "integer" registration sections.
+            $section = (ctype_digit($row[COLUMN_SECTION])) ? ltrim($row[COLUMN_SECTION], "0") : $row[COLUMN_SECTION];
 
             //Row validation filters.  If any prove false, row is discarded.
             switch(false) {
@@ -163,15 +172,9 @@ class submitty_student_auto_feed {
             //Check that row shows student is registered.
             case (in_array($row[COLUMN_REGISTRATION], unserialize(STUDENT_REGISTERED_CODES))):
                 break;
-            //Validate expected number of fields
-            case ($num_fields === $validate_num_fields):
-            //Log that row is invalid per number of columns
-                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.");
-                $validation_flag = false;
-                break;
-            //Check row columns
+            //Row is OK, next check row columns.
             default:
-                //Column validation filters.  If any prove false, the entire row is discarded.
+                //Column validation filters.  If any prove false, the entire data file will be disqualified.
                 switch(false) {
                 //Check term code (skips when set to null).
                 case ((is_null(EXPECTED_TERM_CODE)) ? true : ($row[COLUMN_TERM_CODE] === EXPECTED_TERM_CODE)):
@@ -210,7 +213,7 @@ class submitty_student_auto_feed {
                             $tmp_course  = $course;
                             $tmp_section = $section;
                             $course = self::$course_mappings[$tmp_course][$tmp_section]['mapped_course'];
-                            $section = intval(self::$course_mappings[$tmp_course][$tmp_section]['mapped_section']);
+                            $section = self::$course_mappings[$tmp_course][$tmp_section]['mapped_section'];
                         } else {
                             $this->log_it("{$course} has been mapped.  Section {$section} is in feed, but not mapped.");
                             $validation_flag = false;
@@ -440,7 +443,6 @@ SQL;
      * @return boolean  true when upsert is complete
      */
     private function upsert_psql() {
-
         $sql = array('begin'    => 'BEGIN',
                      'commit'   => 'COMMIT',
                      'rollback' => 'ROLLBACK');
@@ -466,11 +468,11 @@ SQL;
 
         $sql['courses_users']['temp_table'] = <<<SQL
 CREATE TEMPORARY TABLE upsert_courses_users (
-    semester             VARCHAR,
-    course               VARCHAR,
+    semester             VARCHAR(255),
+    course               VARCHAR(255),
     user_id              VARCHAR,
     user_group           INTEGER,
-    registration_section VARCHAR,
+    registration_section VARCHAR(255),
     manual_registration  BOOLEAN
 ) ON COMMIT DROP
 SQL;
@@ -682,7 +684,6 @@ SQL;
             pg_query(self::$db, $sql['courses_users']['lock']);
             switch (false) {
             case pg_query(self::$db, $sql['registration_section']['insert']):
-
                 pg_query(self::$db, $sql['rollback']);
                 break;
             case pg_query(self::$db, $sql['courses_users']['update']):
