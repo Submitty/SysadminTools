@@ -141,25 +141,38 @@ class submitty_student_auto_feed {
 
         //Validate CSV
         $validate_num_fields = VALIDATE_NUM_FIELDS;
-        $validation_flag = true;
+        $validation_flag = true;  //Set to false to invalidate the entire CSV file.
+        $rpi_found_non_empty_row = false;  //RPI edge case flag.
         foreach($csv_data as $index => $csv_row) {
-            //Split each row by delim character so that individual fields are indexed.
-            //Trim any extraneous whitespaces from all rows and fields.
-            $row = array();
-            foreach (explode(CSV_DELIM_CHAR, trim($csv_row)) as $i=>$field) {
-                $row[$i] = trim($field);
-            }
+            // 1) Trim CSV row.  Do not trim CSV_DELIM_CHAR.
+            // 2) Convert CSV row to array.
+            // 3) Trim array fields.
+            $trim_str = " \t\n\r\0\x0B"; //$trim_str = space, tab, newline, carriage return, null byte, vertical tab
+            $trim_str = str_replace(CSV_DELIM_CHAR, "", $trim_str); //remove CSV_DELIM_CHAR from $trim_str
+            $row = array_map('trim', explode(CSV_DELIM_CHAR, trim($csv_row, $trim_str)));
 
             //BEGIN VALIDATION
             //Invalidate any row that doesn't have requisite number of fields.  Do this, first.
             //Invalidation will disqualify the data file to protect DB data integrity.
             $num_fields = count($row);
             if ($num_fields !== $validate_num_fields) {
-                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.");
+                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.  CSV disqualified.");
                 $validation_flag = false;
                 continue;
+            } else if (empty(array_filter($row, function($field) { return !empty($field); }))) {
+                if (!$rpi_found_non_empty_row) {
+                    // RPI edge case to skip a correctly sized row of all empty fields — at the top of a data file, before proper data is read — without invalidating the whole data file.
+                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — at top of CSV.  Ignoring row.");
+                    continue;
+                } else {
+                    // Correctly sized empty row below data row(s) — invalidate data file.
+                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — below a non-empty data row.  CSV disqualified.");
+                    $validation_flag = false;
+                    continue;
+                }
             }
 
+            $rpi_found_non_empty_row = true;
             $course = strtolower($row[COLUMN_COURSE_PREFIX]) . $row[COLUMN_COURSE_NUMBER];
             // Remove any leading zeroes from "integer" registration sections.
             $section = (ctype_digit($row[COLUMN_SECTION])) ? ltrim($row[COLUMN_SECTION], "0") : $row[COLUMN_SECTION];
