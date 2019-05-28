@@ -235,6 +235,7 @@ class submitty_student_auto_feed {
 
                     //Validation passed. Include row in data set.
                     self::$data['users'][] = array('user_id'            => $row[COLUMN_USER_ID],
+                                                   'user_numeric_id'    => $row[COLUMN_NUMERIC_ID],
                                                    'user_firstname'     => $row[COLUMN_FIRSTNAME],
                                                    'user_preferredname' => $row[COLUMN_PREFERREDNAME],
                                                    'user_lastname'      => $row[COLUMN_LASTNAME],
@@ -464,6 +465,7 @@ SQL;
         $sql['users']['temp_table'] = <<<SQL
 CREATE TEMPORARY TABLE upsert_users (
     user_id                  VARCHAR,
+    user_numeric_id          VARCHAR,
     user_firstname           VARCHAR,
     user_preferred_firstname VARCHAR,
     user_lastname            VARCHAR,
@@ -497,7 +499,7 @@ INSERT INTO upsert_courses_registration_sections VALUES ($1,$2,$3)
 SQL;
 
         $sql['users']['data'] = <<<SQL
-INSERT INTO upsert_users VALUES ($1,$2,$3,$4,$5);
+INSERT INTO upsert_users VALUES ($1,$2,$3,$4,$5,$6);
 SQL;
 
         $sql['courses_users']['data'] = <<<SQL
@@ -522,6 +524,7 @@ SQL;
         $sql['users']['update'] = <<<SQL
 UPDATE users
 SET
+    user_numeric_id=upsert_users.user_numeric_id,
     user_firstname=upsert_users.user_firstname,
     user_lastname=upsert_users.user_lastname,
     user_preferred_firstname=
@@ -556,12 +559,14 @@ SQL;
         $sql['users']['insert'] = <<<SQL
 INSERT INTO users (
     user_id,
+    user_numeric_id,
     user_firstname,
     user_lastname,
     user_preferred_firstname,
     user_email
 ) SELECT
     upsert_users.user_id,
+    upsert_users.user_numeric_id,
     upsert_users.user_firstname,
     upsert_users.user_lastname,
     upsert_users.user_preferred_firstname,
