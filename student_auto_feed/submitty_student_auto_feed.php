@@ -141,25 +141,38 @@ class submitty_student_auto_feed {
 
         //Validate CSV
         $validate_num_fields = VALIDATE_NUM_FIELDS;
-        $validation_flag = true;
+        $validation_flag = true;  //Set to false to invalidate the entire CSV file.
+        $rpi_found_non_empty_row = false;  //RPI edge case flag.
         foreach($csv_data as $index => $csv_row) {
-            //Split each row by delim character so that individual fields are indexed.
-            //Trim any extraneous whitespaces from all rows and fields.
-            $row = array();
-            foreach (explode(CSV_DELIM_CHAR, trim($csv_row)) as $i=>$field) {
-                $row[$i] = trim($field);
-            }
+            // 1) Trim CSV row.  Do not trim CSV_DELIM_CHAR.
+            // 2) Convert CSV row to array.
+            // 3) Trim array fields.
+            $trim_str = " \t\n\r\0\x0B"; //$trim_str = space, tab, newline, carriage return, null byte, vertical tab
+            $trim_str = str_replace(CSV_DELIM_CHAR, "", $trim_str); //remove CSV_DELIM_CHAR from $trim_str
+            $row = array_map('trim', explode(CSV_DELIM_CHAR, trim($csv_row, $trim_str)));
 
             //BEGIN VALIDATION
             //Invalidate any row that doesn't have requisite number of fields.  Do this, first.
             //Invalidation will disqualify the data file to protect DB data integrity.
             $num_fields = count($row);
             if ($num_fields !== $validate_num_fields) {
-                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.");
+                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.  CSV disqualified.");
                 $validation_flag = false;
                 continue;
+            } else if (empty(array_filter($row, function($field) { return !empty($field); }))) {
+                if (!$rpi_found_non_empty_row) {
+                    // RPI edge case to skip a correctly sized row of all empty fields — at the top of a data file, before proper data is read — without invalidating the whole data file.
+                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — at top of CSV.  Ignoring row.");
+                    continue;
+                } else {
+                    // Correctly sized empty row below data row(s) — invalidate data file.
+                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — below a non-empty data row.  CSV disqualified.");
+                    $validation_flag = false;
+                    continue;
+                }
             }
 
+            $rpi_found_non_empty_row = true;
             $course = strtolower($row[COLUMN_COURSE_PREFIX]) . $row[COLUMN_COURSE_NUMBER];
             // Remove any leading zeroes from "integer" registration sections.
             $section = (ctype_digit($row[COLUMN_SECTION])) ? ltrim($row[COLUMN_SECTION], "0") : $row[COLUMN_SECTION];
@@ -222,6 +235,7 @@ class submitty_student_auto_feed {
 
                     //Validation passed. Include row in data set.
                     self::$data['users'][] = array('user_id'            => $row[COLUMN_USER_ID],
+                                                   'user_numeric_id'    => $row[COLUMN_NUMERIC_ID],
                                                    'user_firstname'     => $row[COLUMN_FIRSTNAME],
                                                    'user_preferredname' => $row[COLUMN_PREFERREDNAME],
                                                    'user_lastname'      => $row[COLUMN_LASTNAME],
@@ -451,6 +465,7 @@ SQL;
         $sql['users']['temp_table'] = <<<SQL
 CREATE TEMPORARY TABLE upsert_users (
     user_id                  VARCHAR,
+    user_numeric_id          VARCHAR,
     user_firstname           VARCHAR,
     user_preferred_firstname VARCHAR,
     user_lastname            VARCHAR,
@@ -484,7 +499,7 @@ INSERT INTO upsert_courses_registration_sections VALUES ($1,$2,$3)
 SQL;
 
         $sql['users']['data'] = <<<SQL
-INSERT INTO upsert_users VALUES ($1,$2,$3,$4,$5);
+INSERT INTO upsert_users VALUES ($1,$2,$3,$4,$5,$6);
 SQL;
 
         $sql['courses_users']['data'] = <<<SQL
@@ -509,6 +524,7 @@ SQL;
         $sql['users']['update'] = <<<SQL
 UPDATE users
 SET
+    user_numeric_id=upsert_users.user_numeric_id,
     user_firstname=upsert_users.user_firstname,
     user_lastname=upsert_users.user_lastname,
     user_preferred_firstname=
@@ -543,12 +559,14 @@ SQL;
         $sql['users']['insert'] = <<<SQL
 INSERT INTO users (
     user_id,
+    user_numeric_id,
     user_firstname,
     user_lastname,
     user_preferred_firstname,
     user_email
 ) SELECT
     upsert_users.user_id,
+    upsert_users.user_numeric_id,
     upsert_users.user_firstname,
     upsert_users.user_lastname,
     upsert_users.user_preferred_firstname,

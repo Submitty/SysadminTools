@@ -142,6 +142,7 @@ define('COLUMN_COURSE_NUMBER', 9);  //Course number
 define('COLUMN_REGISTRATION',  7);  //Student enrollment status
 define('COLUMN_SECTION',       10); //Section student is enrolled
 define('COLUMN_USER_ID',       5);  //Student's computer systems ID
+define('COLUMN_NUMERIC_ID',    6);  //Alternate ID Number (e.g. campus ID number)
 define('COLUMN_FIRSTNAME',     2);  //Student's First Name
 define('COLUMN_LASTNAME',      1);  //Student's Last Name
 define('COLUMN_PREFERREDNAME', 3);  //Student's Preferred Name
