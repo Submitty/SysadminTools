@@ -13,18 +13,35 @@
 /** Main class */
 class main {
 
-    /** Config const array */
+    /**
+     * Config
+     *
+     * @var const array
+     * @access private
+     */
     private const CONFIG = array(
+        'timezone'                 => "America/New_York",
         'postgresql_logfile_path'  => "/var/log/postgresql/",
         'submitty_logfile_path'    => "/var/log/postgresql/",
         'postgresql_logfile'       => "postgresql",
         'submitty_logfile'         => "submitty_preferred_names",
-        'postgresql_log_row_count' => 23
+        'postgresql_log_row_count' => 23,
+        'submitty_log_retention'   => 7
     );
+
+    /**
+     * Number of days of preferred_name_change logs to keep.
+     *
+     * @var int
+     * @access private
+     * @static
+     */
+    private static $log_retention_days;
 
     /**
      * Method to invoke to run this program: main::run()
      *
+     * @access public
      * @static
      */
     public static function run() {
@@ -36,7 +53,10 @@ class main {
             exit(1);
         }
 
+        date_default_timezone_set(self::CONFIG['timezone']);
+
         self::parse_and_write_logs();
+        self::log_retention_and_deletion();
 
         exit(0);
     }
@@ -44,23 +64,23 @@ class main {
     /**
      * Process method
      *
+     * @access private
      * @static
      */
     private static function parse_and_write_logs() {
         //Prepare submitty preferred name change log file for today.
-        $submitty_logfile = sprintf("%s%s_%s.log", self::CONFIG['submitty_logfile_path'], self::CONFIG['submitty_logfile'], date("m-d-y"));
+        $submitty_logfile = sprintf("%s%s_%s.log", self::CONFIG['submitty_logfile_path'], self::CONFIG['submitty_logfile'], date("Y-m-d"));
         $submitty_fh = fopen($submitty_logfile, 'w');
         if ($submitty_fh === false) {
             self::log("Cannot create Submitty logfile.");
             exit(1);
         } else {
-            fprintf($submitty_fh, "Log opened.%s", PHP_EOL);
+            fwrite($submitty_fh, "Log opened." . PHP_EOL);
         }
 
         //There can be multiple psql log files that need to be read.
         $preg_str = sprintf("~^%s\-%s_\d{6}\.csv$~", self::CONFIG['postgresql_logfile'], preg_quote(date("Y-m-d", time() - 86400 )));
-        $logfiles = scandir(self::CONFIG['postgresql_logfile_path']);
-        $logfiles = preg_grep($preg_str, $logfiles);
+        $logfiles = preg_grep($preg_str, scandir(self::CONFIG['postgresql_logfile_path']));
 
         foreach ($logfiles as $logfile) {
             $psql_fh = fopen(self::CONFIG['postgresql_logfile_path'] . $logfile, 'r');
@@ -75,7 +95,7 @@ class main {
                 //Validation.  Any case is true, validation fails and row is ignored.
                 switch(true) {
                 case count($psql_row) !== self::CONFIG['postgresql_log_row_count']:
-                    self::log(sprintf("NOTICE: PSQL log row %d had %d columns.  %d columns expected.  Row ignored.%s", $psql_row_num, count($psql_row), self::CONFIG['postgresql_log_row_count']);
+                    self::log(sprintf("NOTICE: PSQL log row %d had %d columns.  %d columns expected.  Row ignored.%s", $psql_row_num, count($psql_row), self::CONFIG['postgresql_log_row_count']));
                 case $psql_row[7] !== "UPDATE":
                 case $psql_row[11] !== "LOG":
                 case $psql_row[13] !== "PREFERRED_NAME DATA UPDATE":
@@ -135,13 +155,36 @@ class main {
             fclose($psql_fh);
         }
 
-        fprintf($submitty_fh, "Log closed.%s", PHP_EOL);
+        fwrite($submitty_fh, "Log closed." . PHP_EOL);
         fclose($submitty_fh);
+    }
+
+    /**
+     * Automatically remove old logs
+     *
+     * @access private
+     * @static
+     */
+    private static function log_retention_and_deletion() {
+        $preg_str = sprintf("~^%s_%s.log$~", self::CONFIG['submitty_logfile'], preg_quote(date("m-d-Y")));
+        $logfiles = preg_grep($preg_str, scandir(self::CONFIG['submitty_logfile_path']));
+        $expiration_epoch = (int)(strtotime(date(Y-m-d)) / 86400) - self::CONFIG['submitty_log_retention'];
+
+        foreach($logfiles as $logfile) {
+            $datestamp = substr($logfile, strpos($logfile, "_") + 1, 10);
+            $datestamp_epoch = (int)(strtotime($datestamp) / 86400);
+            if ($datestamp_epoch < $expiration_epoch) {
+                if (unlink(self::CONFIG['submitty_logfile_path'] . $logfile) === false) {
+                    self::log("Could not delete old logfile: {$logfile}");
+                }
+            }
+        }
     }
 
     /**
      * Log messages to error log and STDERR.
      *
+     * @access private
      * @static
      */
     private static function log(string $msg) {
@@ -154,4 +197,5 @@ class main {
 // Start processing.
 main::run();
 
+// EOF
 ?>
