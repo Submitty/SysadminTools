@@ -168,7 +168,7 @@ class main {
     private static function log_retention_and_deletion() {
         $preg_str = sprintf("~^%s_%s.log$~", self::CONFIG['submitty_logfile'], preg_quote(date("m-d-Y")));
         $logfiles = preg_grep($preg_str, scandir(self::CONFIG['submitty_logfile_path']));
-        $expiration_epoch = (int)(strtotime(date('Y-m-d')) / 86400) - self::CONFIG['submitty_log_retention'];
+        $expiration_epoch = (int)(strtotime(date(Y-m-d)) / 86400) - self::CONFIG['submitty_log_retention'];
 
         foreach($logfiles as $logfile) {
             $datestamp = substr($logfile, strpos($logfile, "_") + 1, 10);
