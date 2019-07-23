@@ -534,6 +534,7 @@ SET
     user_email=upsert_users.user_email
 FROM upsert_users
 WHERE users.user_id=upsert_users.user_id
+/* AUTH: "AUTO_FEED" */
 SQL;
 
         $sql['registration_section']['update'] = null;
