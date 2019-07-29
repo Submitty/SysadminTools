@@ -87,6 +87,7 @@ class main {
         }
 
         //There can be multiple psql log files that need to be read.
+        //But we want the ones dated one day prior (hence subtract 86400 seconds which is one day)
         $preg_str = sprintf("~^%s\-%s_\d{6}\.csv$~", self::CONFIG['postgresql_logfile'], preg_quote(date("Y-m-d", time() - 86400)));
         $logfiles = preg_grep($preg_str, scandir(self::CONFIG['postgresql_logfile_path']));
 
@@ -126,26 +127,41 @@ class main {
                     $key['end'] = strpos($psql_row[self::CONSTANTS['psql_data_auth']], " */");
                     $auth = " | " . substr($psql_row[self::CONSTANTS['psql_data_auth']], $key['start'], $key['end'] - $key['start']);
                 } else {
-                    $auth = " | AUTH NOT LOGGED";
+                    $auth = " | AUTH NOT LOGGED ";
+                    //Anything sent to STDERR gets emailed by cron.
+                    fprintf(STDERR, "WARNING: AUTH NOT LOGGED%s%s", PHP_EOL, var_export($psql_row, true));
                 }
 
-                //Get preferred name change tokens.
+                //Get user_id and preferred name change tokens.
                 $preferred_name = array();
                 $preferred_names_data = explode(" ", $psql_row[self::CONSTANTS['psql_data_pfn']]);
+
+                //user_id token
+                $key = array_search("USER_ID:", $preferred_names_data);
+                if ($key !== false) {
+                    $user_id = " | USER_ID: {$preferred_names_data[$key+1]} ";
+                } else {
+                    $user_id = " | USER_ID NOT LOGGED ";
+                    //Anything sent to STDERR gets emailed by cron.
+                    fprintf(STDERR, "WARNING: USER ID NOT LOGGED%s%s", PHP_EOL, var_export($psql_row, true));
+                }
+
                 $key = array_search("PREFERRED_FIRSTNAME", $preferred_names_data);
                 if ($key !== false) {
                     $preferred_name['first']['old'] = $preferred_names_data[$key+2];
                     $preferred_name['first']['new'] = $preferred_names_data[$key+4];
                 }
+                // It is possible that no Preferred Firstname was logged, in which we can ignore an move on.
 
                 $key = array_search("PREFERRED_LASTNAME", $preferred_names_data);
                 if ($key !== false) {
                     $preferred_name['last']['old'] = $preferred_names_data[$key+2];
                     $preferred_name['last']['new'] = $preferred_names_data[$key+4];
                 }
+                // It is possible that no Preferred Lastname was logged, in which we can ignore an move on.
 
                 //Build preferred name change log entry.
-                $submitty_log = $date . $auth;
+                $submitty_log = $date . $auth . $user_id;
                 if (isset($preferred_name['first'])) {
                     $submitty_log .= " | PREFERRED_FIRSTNAME OLD: {$preferred_name['first']['old']} NEW: {$preferred_name['first']['new']}";
                 } else {
