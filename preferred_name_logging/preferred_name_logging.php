@@ -61,15 +61,17 @@ class main {
         //check for which server to run on.
         $args = cli_args::parse_args();
 
-        //must be run as root or submitty_daemon (submitty/vagrant only).
-        //submitty/vagrant servers need to lookup submitty_daemon user info.
+        //must be run as root or submitty_daemon (submitty/dev only).
+        //submitty/dev mode needs to lookup submitty_daemon user info.
         switch($args) {
         case "submitty":
-        case "vagrant":
-            self::get_daemon_user();
+        case "dev":
+            if (self::get_daemon_user() === false) {
+                fprintf(STDERR, "Could not retrieve Submitty daemon uuid%s.  Aborting.%s", PHP_EOL, PHP_EOL);
+                exit(1);
+            }
         }
 
-        var_dump(self::$daemon_user); die;
         if (posix_getuid() !== 0 && posix_getuid() !== self::$daemon_user['uid']) {
             fprintf(STDERR, "Execution denied.%s", PHP_EOL);
             exit(1);
@@ -81,9 +83,9 @@ class main {
         case "submitty":
             self::override_config();
             break;
-        case "vagrant":
+        case "dev":
             self::override_config();
-            //vagrant should read today's psql CSV.
+            //dev should read today's psql CSV.
             self::$psql_log_time_offset = 0;
             break;
         }
@@ -110,13 +112,17 @@ class main {
      */
     private static function get_daemon_user() {
         $json = file_get_contents("../config/submitty_users.json");
-        if ($json !== false) {
+        if ($json === false) {
+            return false;
+        } else {
             $json = json_decode($json, true);
             self::$daemon_user = array(
                 'name' => $json['daemon_user'],
                 'uid'  => $json['daemon_uid'],
                 'gid'  => $json['daemon_gid']
             );
+
+            return true;
         }
     }
 
@@ -311,7 +317,7 @@ class cli_args {
 
     /** @var string usage help message */
     private static $help_usage      = <<<HELP
-CLI options: [-h | --help] (-s | --server (psql | submitty | vagrant))
+CLI options: [-h | --help] (-m | --mode (psql | submitty | dev))
 
 
 HELP;
@@ -326,12 +332,14 @@ HELP;
     /** @var string argument list help message */
     private static $help_args_list  = <<<HELP
 Arguments
--h --help      Show this help message.
--s --server    Required.  Set to 'submitty' if postgresql operates on the same
-               server or instance as the Submitty system.  Set to 'psql' when
-               postgresql operates on a different server or instance as the
-               Submitty system.  Set to 'vagrant' when using the vagrant
-               development environment.
+-h --help    Show this help message.
+-m --mode    Required.  Use 'submitty' if postgresql operates on the same server
+             or instance as the Submitty system.  Use 'psql' when postgresql
+             operates on a different server or instance as the Submitty system
+             (this will also require manual changes to postgresl.conf).
+             Use 'dev' to run the script immediately on the most recent psql
+             log, such as in a development environment (vagrant, etc.).  'dev'
+             assumes that postgresql exists locally with Submitty.
 
 
 HELP;
@@ -346,7 +354,7 @@ HELP;
      * @return string command process.
      */
     public static function parse_args() {
-        $args = getopt('s:h', array('server:','help'));
+        $args = getopt('m:h', array('mode:','help'));
 
         switch(true) {
         // -h or --help
@@ -356,21 +364,21 @@ HELP;
             print self::$help_usage;
             print self::$help_args_list;
             exit(0);
-        // -s
-        case array_key_exists('s', $args):
-            switch($args['s']) {
+        // -m
+        case array_key_exists('m', $args):
+            switch($args['m']) {
             case "psql":
             case "submitty":
-            case "vagrant":
-                return $args['s'];
+            case "dev":
+                return $args['m'];
             }
-        // --server
-        case array_key_exists('server', $args):
-            switch($args['server']) {
+        // --mode
+        case array_key_exists('mode', $args):
+            switch($args['mode']) {
             case "psql":
             case "submitty":
-            case "vagrant":
-                return $args['server'];
+            case "dev":
+                return $args['mode'];
             }
         }
 
@@ -379,6 +387,7 @@ HELP;
         exit(1);
     }
 } //END class parse_args
+
 
 //Start processing.
 main::run();
