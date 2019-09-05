@@ -37,6 +37,7 @@ class submitty_student_auto_feed {
     private static $db;
     private static $data;
     private static $log_msg_queue;
+    private static $fh;
 
     public function __construct() {
 
@@ -80,7 +81,7 @@ class submitty_student_auto_feed {
             //Halts when FALSE is returned by a method.
             switch(false) {
             //Load CSV data
-            case $this->load_csv($csv_data):
+            case $this->open_csv($csv_data):
                 $this->log_it("Student CSV data could not be read.");
                 exit(1);
             //Validate CSV data (anything pertinent is stored in self::$data property)
@@ -105,6 +106,12 @@ class submitty_student_auto_feed {
             pg_close(self::$db);
         }
 
+        //Close CSV file, if it is open.
+        if (is_resource(self::$fh) && get_resource_type($fh) === "stream") {
+            flock(self::$fh, LOCK_UN);
+            fclose(self::$fh);
+        }
+
         //Output logs, if any.
         if (!empty(self::$log_msg_queue)) {
             if (!is_null(ERROR_EMAIL)) {
@@ -122,7 +129,7 @@ class submitty_student_auto_feed {
      * @param  array    $csv_data  rows of data read from enrollment CSV.
      * @return boolean  indicates success that CSV data passes validation tests
      */
-    private function validate_csv($csv_data) {
+    private function validate_csv() {
 
         /**
          * Anonymous function to add validated $row to self::$data
@@ -152,14 +159,9 @@ class submitty_student_auto_feed {
                                                             'manual_registration'  => 'FALSE');
         };
 
-        if (empty($csv_data)) {
-            $this->log_it("No data read from student CSV file.");
+        if (!is_resource(self::$fh) && get_resource_type(self::$fh) !== "stream") {
+            $this->log_it("CSV file handle invalid when starting CSV data validation.");
             return false;
-        }
-
-        //Windows generated data feeds should be converted to UTF-8
-        if (CONVERT_CP1252) {
-            array_walk($csv_data, function(&$row) {$row = iconv("WINDOWS-1252", "UTF-8//TRANSLIT", $row);}, null);
         }
 
         //Prepare validation
@@ -168,13 +170,11 @@ class submitty_student_auto_feed {
         $validation_flag = true;
         $validate_num_fields = VALIDATE_NUM_FIELDS;
         $rpi_found_non_empty_row = false;  //RPI edge case flag where top row(s) of CSV might have empty data.
-        foreach($csv_data as $index => $csv_row) {
-            // * Trim CSV row without trimming CSV_DELIM_CHAR.
-            // * Convert CSV row to array.
-            // * Trim array fields (trim all whitespace, including CSV_DELIM_CHAR).
-            $trim_str = " \t\n\r\0\x0B"; //$trim_str = space, tab, newline, carriage return, null byte, vertical tab
-            $trim_str = str_replace(CSV_DELIM_CHAR, "", $trim_str); //remove CSV_DELIM_CHAR from $trim_str
-            $row = array_map('trim', explode(CSV_DELIM_CHAR, trim($csv_row, $trim_str))); //trim csv row, explode row to array, and trim array fields.
+
+        $row = fgetcsv($fh, 0, CSV_DELIM_CHAR);
+        while ($row !== false) {
+            //Trim whitespace from all fields in $row
+            array_walk($row, 'trim');
 
             //BEGIN VALIDATION
             //Invalidate any row that doesn't have requisite number of fields.  Do this, first.
@@ -185,8 +185,8 @@ class submitty_student_auto_feed {
                 $validation_flag = false;
                 continue;
             } else if (empty(array_filter($row, function($field) { return !empty($field); }))) {
+                //RPI edge case to skip a correctly sized row of all empty fields — at the top of a data file, before proper data is read — without invalidating the whole data file.
                 if (!$rpi_found_non_empty_row) {
-                    //RPI edge case to skip a correctly sized row of all empty fields — at the top of a data file, before proper data is read — without invalidating the whole data file.
                     $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — at top of CSV.  Ignoring row.");
                     continue;
                 } else {
@@ -272,6 +272,9 @@ class submitty_student_auto_feed {
                     continue;
                 }
             }
+
+            //Next row
+            $row = fgetcsv(self::$fh, 0, CSV_DELIM_CHAR);
         } //END iterating over CSV data.
 
         /* ---------------------------------------------------------------------
@@ -411,39 +414,22 @@ SQL;
      * @param array    $csv_data  empty array used to read CSV data from file
      * @return boolean  indicates success/failure of loading CSV data
      */
-    private function load_csv(&$csv_data) {
+    private function open_csv() {
 
         $csv_file = CSV_FILE;
 
-        switch(CSV_AUTH) {
-        case 'local':
-            $host = "";
-            break;
-        case 'remote_password':
-            $ssh2 = ssh2_connect(CSV_REMOTE_SERVER, 22);
-            if (ssh2_auth_password($ssh2, CSV_AUTH_USER, CSV_AUTH_PASSWORD)) {
-                $sftp = ssh2_sftp($ssh2);
-                $host = "ssh2.sftp://" . intval($sftp);
-            } else {
+        self::$fh = fopen("{$csv_file}", "r");
+        if (is_resource(self::$fh) && get_resource_type(self::$fh) === "stream")
+            if (flock(self::$fh, LOCK_SH)) {
+                $this->logit("Could not lock CSV file for reading");
                 return false;
             }
-            break;
-        case 'remote_keypair':
-            $ssh2 = ssh2_connect(CSV_REMOTE_SERVER, 22, array('hostkey'=>'ssh-rsa'));
-            if (ssh2_auth_pubkey_file($ssh2, CSV_AUTH_USER, CSV_AUTH_PUBKEY, CSV_AUTH_PRIVKEY, CSV_PRIVKEY_PASSPHRASE)) {
-                $sftp = ssh2_sftp($ssh2);
-                $host = "ssh2.sftp://" . intval($sftp);
-            } else {
-                $this->log_it("SFTP keypair auth failed.\n" . CSV_REMOTE_SERVER . PHP_EOL . CSV_AUTH_USER . PHP_EOL . CSV_AUTH_PUBKEY . PHP_EOL . CSV_AUTH_PRIVKEY . PHP_EOL . CSV_PRIVKEY_PASSPHRASE . PHP_EOL);
-                return false;
-            }
-            break;
-        default:
+
+            return true;
+        } else {
+            $this->log_it("Could not open CSV file.  Check config.");
             return false;
         }
-
-        $csv_data = file("{$host}{$csv_file}", FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        return true;
     }
 
     /**

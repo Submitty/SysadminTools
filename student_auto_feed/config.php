@@ -68,61 +68,9 @@ define('VALIDATE_NUM_FIELDS', 10);
 // The following constants are used to read the CSV auto feed file provided by
 // the registrar / data warehouse.  ***THESE NEED TO BE SET.
 //
-// CSV_AUTH can be set to 'local' or 'remote_password' or 'remote_keypair'.
-//
-//          'local' means the CSV file can be read locally by the script, so no
-//          remote authentication details are needed.
-//
-//          'remote_password' means that the file must be accessed on another
-//           server, and authentication is by password.
-//           q.v. CSV_AUTH_PASSWORD
-//
-//           'remote_key' means that the file must be accessed on another
-//           server, and authentication is by RSA key pair.
-//           q.v. CSV_AUTH_PUBKEY, CSV_AUTH_PRIVKEY, CSV_PRIVKEY_PASSPHRASE
-//
 // CSV_FILE is the full path of the student auto feed file, regardless if it is
 //          accessed locally or remotely.
-//
-// CSV_REMOTE_SERVER is the fully qualified domain name of the server that hosts
-//                   the student feed CSV file.  This constant is ignored when
-//                   CSV_AUTH is set to 'local'.
-//
-// CSV_AUTH_USER is the user account to access the student feed CSV, when the
-//               file exists on a remote server.  This constant is ignored when
-//               CSV_AUTH is set to 'local'.
-//
-// CSV_AUTH_PASSWORD is the user account password required to access the student
-//                   feed CSV on a remote server.  This constant is ignored when
-//                   CSV_AUTH is set to anything other than 'remote_password'.
-//
-// CSV_AUTH_PUBKEY is the path to the public key used to authenticate with the
-//                 remote server that has the student feed CSV.  The public key
-//                 needs to be in OpenSSH format.  This constant is ignored
-//                 when CSV_AUTH is set to anything other than 'remote_keypair'.
-//
-// CSV_AUTH_PRIVKEY is the path to the private key used to communicate with the
-//                  remote server that has the student feed CSV.  This constant
-//                  is ignored when CSV_AUTH is set to anything other than
-//                  'remote_keypair'.
-//
-// CSV_PRIVKEY_PASSPHRASE is the passphrase used to encrypt the private key.
-//                        Set to null, if the private key is not encrypted.
-//                        This constant is ignored when CSV_AUTH is set to
-//                        anything other than 'remote_keypair'.
-//                        NOTE: To use encrypted keys with an Ubuntu SSH/SFTP
-//                              host, libssh2 needs be manually recompiled with
-//                              OpenSSH.  Otherwise, authentication will always
-//                              fail. q.v. https://bugs.php.net/bug.php?id=58573
-//                              and http://php.net/manual/en/function.ssh2-auth-pubkey-file.php
-define('CSV_AUTH',               'remote_keypair');
 define('CSV_FILE',               '/path/to/datafile.csv');
-define('CSV_REMOTE_SERVER',      'fileserver.myuniversity.edu');
-define('CSV_AUTH_USER',          'remote_user');
-define('CSV_AUTH_PASSWORD',      null);
-define('CSV_AUTH_PUBKEY',        '/path/to/rsa_key.pub');
-define('CSV_AUTH_PRIVKEY',       '/path/to/rsa_key.pfx');
-define('CSV_PRIVKEY_PASSPHRASE', 'MySecretPassphrase');
 
 //Define what character is delimiting each field.  ***THIS NEEDS TO BE SET.
 //EXAMPLE: chr(9) is the tab character.
