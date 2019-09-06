@@ -21,7 +21,7 @@
  *
  * Will run the auto feed for the Spring 2018 semester.
  *
- * Requires minimum PHP version 5.6 with pgsql, iconv, and ssh2 extensions.
+ * Requires minimum PHP version 7.0 with pgsql, and iconv extensions.
  *
  * @author Peter Bailie, Systems Programmer (RPI dept of computer science)
  */
@@ -35,9 +35,10 @@ class submitty_student_auto_feed {
     private static $course_list;
     private static $course_mappings;
     private static $db;
+    private static $fh = false;
+    private static $fh_locked = false;
     private static $data;
     private static $log_msg_queue;
-    private static $fh;
 
     public function __construct() {
 
@@ -106,9 +107,13 @@ class submitty_student_auto_feed {
             pg_close(self::$db);
         }
 
-        //Close CSV file, if it is open.
-        if (is_resource(self::$fh) && get_resource_type($fh) === "stream") {
+        //Unlock CSV if it is locked.
+        if (self::$fh_locked) {
             flock(self::$fh, LOCK_UN);
+        }
+
+        //Close CSV file, if it is open.
+        if (self::$fh !== false) {
             fclose(self::$fh);
         }
 
@@ -130,34 +135,6 @@ class submitty_student_auto_feed {
      * @return boolean  indicates success that CSV data passes validation tests
      */
     private function validate_csv() {
-
-        /**
-         * Anonymous function to add validated $row to self::$data
-         *
-         * This should only be called AFTER $row is successfully validated.
-         *
-         * @param array $row data row to include
-         * @param string $course course associated with data row
-         * @param string $section section associated with data row
-         */
-        $include_row = function($row, $course, $section) {
-            self::$data['users'][] = array('user_id'            => $row[COLUMN_USER_ID],
-                                           'user_numeric_id'    => $row[COLUMN_NUMERIC_ID],
-                                           'user_firstname'     => $row[COLUMN_FIRSTNAME],
-                                           'user_preferredname' => $row[COLUMN_PREFERREDNAME],
-                                           'user_lastname'      => $row[COLUMN_LASTNAME],
-                                           'user_email'         => $row[COLUMN_EMAIL]);
-
-            //Group 'courses_users' data by individual courses, so
-            //upserts can be transacted per course.  This helps prevent
-            //FK violations blocking upserts for other courses.
-            self::$data['courses_users'][$course][] = array('semester'             => self::$semester,
-                                                            'course'               => $course,
-                                                            'user_id'              => $row[COLUMN_USER_ID],
-                                                            'user_group'           => 4,
-                                                            'registration_section' => $section,
-                                                            'manual_registration'  => 'FALSE');
-        };
 
         if (!is_resource(self::$fh) && get_resource_type(self::$fh) !== "stream") {
             $this->log_it("CSV file handle invalid when starting CSV data validation.");
@@ -204,11 +181,11 @@ class submitty_student_auto_feed {
 
             //Row validation filters.  If any prove false, row is discarded.
             switch(false) {
-            //Check to see if course is participating in Submitty (or a mapped course)
+            //Check to see if course is participating in Submitty or a mapped course.
             case (in_array($course, self::$course_list) || array_key_exists($course, self::$course_mappings)):
                 continue 2;
             //Check that row shows student is registered.
-            case (in_array($row[COLUMN_REGISTRATION], unserialize(STUDENT_REGISTERED_CODES))):
+            case (in_array($row[COLUMN_REGISTRATION], STUDENT_REGISTERED_CODES)):
                 continue 2;
             }
 
@@ -253,7 +230,7 @@ class submitty_student_auto_feed {
 
             //Include $row in self::$data as a registered course, if applicable.
             if (in_array($course, self::$course_list)) {
-                $include_row($row, $course, $section);
+                $this->include_row($row, $course, $section);
             }
 
             //Include $row in self::$data as a mapped course, if applicable.
@@ -263,7 +240,7 @@ class submitty_student_auto_feed {
                     $tmp_section = $section;
                     $course = self::$course_mappings[$tmp_course][$tmp_section]['mapped_course'];
                     $section = self::$course_mappings[$tmp_course][$tmp_section]['mapped_section'];
-                    $include_row($row, $course, $section);
+                    $this->include_row($row, $course, $section);
                 } else {
                     //Course mapping is needed, but section is not correctly entered in DB.
                     //Invalidate data file so that upsert is not performed as a safety precaution for system data integrity.
@@ -305,6 +282,34 @@ class submitty_student_auto_feed {
         //TRUE:  Data validation passed and validated data set will have at least 1 row per table.
         //FALSE: Either data validation failed or at least one table is an empty set.
         return ($validation_flag && count(self::$data['users']) > 0 && count(self::$data['courses_users']) > 0);
+    }
+
+    /**
+     * Add $row to self::$data.
+     *
+     * This should only be called AFTER $row is successfully validated.
+     *
+     * @param array $row data row to include
+     * @param string $course course associated with data row
+     * @param string $section section associated with data row
+     */
+    private function include_row($row, $course, $section) {
+        self::$data['users'][] = array('user_id'            => $row[COLUMN_USER_ID],
+                                       'user_numeric_id'    => $row[COLUMN_NUMERIC_ID],
+                                       'user_firstname'     => $row[COLUMN_FIRSTNAME],
+                                       'user_preferredname' => $row[COLUMN_PREFERREDNAME],
+                                       'user_lastname'      => $row[COLUMN_LASTNAME],
+                                       'user_email'         => $row[COLUMN_EMAIL]);
+
+        //Group 'courses_users' data by individual courses, so
+        //upserts can be transacted per course.  This helps prevent
+        //FK violations blocking upserts for other courses.
+        self::$data['courses_users'][$course][] = array('semester'             => self::$semester,
+                                                        'course'               => $course,
+                                                        'user_id'              => $row[COLUMN_USER_ID],
+                                                        'user_group'           => 4,
+                                                        'registration_section' => $section,
+                                                        'manual_registration'  => 'FALSE');
     }
 
     /**
@@ -350,7 +355,9 @@ SQL;
      *
      * Sometimes a course is combined with undergrads/grad students, or a course
      * is crosslisted, but meets collectively.  Course mappings will "merge"
-     * courses into a single master course.
+     * courses into a single master course.  This can also be used to duplicate
+     * course enrollment from one course to another (e.g. an intro course may
+     * duplicate enrollment to an optional extra-lessons pseudo-course).
      *
      * @access private
      * @return array  a list of "course mappings" (where one course is merged into another)
@@ -402,30 +409,23 @@ SQL;
     /**
      * Load auto feed data.
      *
-     * NOTES:
-     * Constants need to be set in config.php.
-     * 'remote_keypair' auth doesn't quite work with encrypted keys on Ubuntu
-     * systems due to a bug in the PHP API when libssh2 is NOT compiled with
-     * OpenSSH (as is normal with Ubuntu).
-     *
-     * @link https://bugs.php.net/bug.php?id=58573
-     * @link http://php.net/manual/en/function.ssh2-auth-pubkey-file.php
      * @access private
-     * @param array    $csv_data  empty array used to read CSV data from file
-     * @return boolean  indicates success/failure of loading CSV data
+     * @return boolean  indicates success/failure of opening and locking CSV file.
      */
     private function open_csv() {
 
-        $csv_file = CSV_FILE;
-
-        self::$fh = fopen("{$csv_file}", "r");
-        if (is_resource(self::$fh) && get_resource_type(self::$fh) === "stream")
-            if (flock(self::$fh, LOCK_SH)) {
-                $this->logit("Could not lock CSV file for reading");
+        self::$fh = fopen(CSV_FILE, "r");
+        if (self::$fh !== false)
+            if (flock(self::$fh, LOCK_SH, $wouldblock)) {
+                self::$fh_locked = true;
+                return true;
+            } else if ($wouldblock === 1) {
+                $this->logit("Another process has locked the CSV.");
+                return false;
+            } else {
+                $this->logit("CSV not blocked, but still could not attain lock for reading.");
                 return false;
             }
-
-            return true;
         } else {
             $this->log_it("Could not open CSV file.  Check config.");
             return false;
@@ -763,7 +763,7 @@ class cli_args {
     /** @var array holds all CLI argument flags and their values */
     private static $args            = array();
     /** @var string usage help message */
-    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] (-t [term code] | -g)" . PHP_EOL;
+    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] (-t [term code])" . PHP_EOL;
     /** @var string short description help message */
     private static $help_short_desc = "Read student enrollment CSV and upsert to Submitty database." . PHP_EOL;
     /** @var string argument list help message */
@@ -771,9 +771,6 @@ class cli_args {
 Arguments
 -h --help       Show this help message.
 -t [term code]  Term code associated with student enrollment.
--g              Guess the term code based on calendar month and year.
-
-NOTE: -t and -g are mutally exclusive.  One is required.
 
 HELP;
 
@@ -796,19 +793,6 @@ HELP;
             print self::$help_short_desc . PHP_EOL;
             print self::$help_args_list . PHP_EOL;
             exit(0);
-        case array_key_exists('g', self::$args):
-            if (array_key_exists('t', self::$args)) {
-                //-t and -g are mutually exclusive
-                print "-g and -t cannot be used together." . PHP_EOL;
-                exit(1);
-            } else {
-                //Guess current term
-                //(s)pring is month <= 5, (f)all is month >= 8, s(u)mmer are months 6 and 7.
-                //if ($month <= 5) {...} else if ($month >= 8) {...} else {...}
-                $month = intval(date("m", time()));
-                $year  = date("y", time());
-                return ($month <= 5) ? "s{$year}" : (($month >= 8) ? "f{$year}" : "u{$year}");
-            }
         case array_key_exists('t', self::$args):
             return self::$args['t'];
         default:

@@ -5,7 +5,7 @@
  * config.php script used by submitty_student_auto_feed
  * By Peter Bailie, Systems Programmer (RPI dept of computer science)
  *
- * Requires minimum PHP version 5.6 with pgsql, iconv, and ssh2 extensions.
+ * Requires minimum PHP version 7.0 with pgsql and iconv extensions.
  *
  * Configuration of submitty_student_auto_feed is structured through defined
  * constants.  Expanded instructions can be found at
@@ -49,10 +49,7 @@ define('ERROR_LOG_FILE', '/var/local/submitty/bin/auto_feed_error.log');
 //           add all pertinant student-is-registered codes that can be found in
 //           your CSV data dump.  EXAMPLE: 'RA' may mean "registered by advisor"
 //           and 'RW' may mean "registered via web"
-define('STUDENT_REGISTERED_CODES', serialize( array(
-'RA',
-'RW',
-)));
+define('STUDENT_REGISTERED_CODES', array('RA', 'RW'));
 
 //An exceptionally small file size can indicate a problem with the feed, and
 //therefore the feed should not be processed to preserve data integrity of the
@@ -70,7 +67,7 @@ define('VALIDATE_NUM_FIELDS', 10);
 //
 // CSV_FILE is the full path of the student auto feed file, regardless if it is
 //          accessed locally or remotely.
-define('CSV_FILE',               '/path/to/datafile.csv');
+define('CSV_FILE', '/path/to/datafile.csv');
 
 //Define what character is delimiting each field.  ***THIS NEEDS TO BE SET.
 //EXAMPLE: chr(9) is the tab character.
@@ -108,9 +105,5 @@ define('CONVERT_CP1252', true);
 
 //Allows "\r" EOL encoding.  This is rare but exists (e.g. Excel for Macintosh).
 ini_set('auto_detect_line_endings', true);
-
-//Needed to access student feed on a remote server.
-//You can comment this out if the student feed is accessed locally.
-ini_set("allow_url_fopen", true);
 
 ?>
