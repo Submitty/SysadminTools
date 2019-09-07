@@ -13,8 +13,7 @@
  *     (and make sure that constants are properly configured)
  * (2) instantiate this class to process a data feed.
  *
- * You may specify the term on the command line with "-t".
- * "-g" can be used to guess the term by the server's calendar month and year.
+ * You must specify the term on the command line with "-t".
  * For example:
  *
  * ./submitty_student_auto_feed.php -t s18
@@ -23,7 +22,7 @@
  *
  * Requires minimum PHP version 7.0 with pgsql, and iconv extensions.
  *
- * @author Peter Bailie, Systems Programmer (RPI dept of computer science)
+ * @author Peter Bailie, Systems Programmer (RPI research computing)
  */
 
 require "config.php";
@@ -31,14 +30,29 @@ new submitty_student_auto_feed();
 
 /** primary process class */
 class submitty_student_auto_feed {
+    /** @staticvar string semester code */
     private static $semester;
+
+    /** @staticvar array list of courses registered in Submitty */
     private static $course_list;
+
+    /** @staticvar array list that describes courses mapped from one to another */
     private static $course_mappings;
+
+    /** @staticvar resource "master" Submitty database connection */
     private static $db;
+
+    /** @staticvar resource file handle to read CSV */
     private static $fh = false;
+
+    /** @staticvar boolean set to true when CSV file attains a lock */
     private static $fh_locked = false;
-    private static $data;
-    private static $log_msg_queue;
+
+    /** @staticvar array all CSV data to be upserted */
+    private static $data = array('users' => array(), 'courses_users' => array());
+
+    /** @staticvar string ongoing string of messages to write to logfile */
+    private static $log_msg_queue = "";
 
     public function __construct() {
 
@@ -46,13 +60,6 @@ class submitty_student_auto_feed {
         if (PHP_SAPI !== "cli") {
             die("This is a command line tool.");
         }
-
-        //Make sure CSV data array is empty on start.
-        self::$data = array('users'         => array(),
-                            'courses_users' => array());
-
-        //Make sure log msg queue string is empty on start.
-        self::$log_msg_queue = "";
 
         //Get semester from CLI arguments.
         self::$semester = cli_args::parse_args();
@@ -82,11 +89,11 @@ class submitty_student_auto_feed {
             //Halts when FALSE is returned by a method.
             switch(false) {
             //Load CSV data
-            case $this->open_csv($csv_data):
+            case $this->open_csv():
                 $this->log_it("Student CSV data could not be read.");
                 exit(1);
             //Validate CSV data (anything pertinent is stored in self::$data property)
-            case $this->validate_csv($csv_data):
+            case $this->validate_csv():
                 $this->log_it("Student CSV data failed validation.  No data upsert performed.");
                 exit(1);
             //Data upsert
@@ -102,12 +109,14 @@ class submitty_student_auto_feed {
 
     public function __destruct() {
 
+        //Graceful cleanup.
+
         //Close DB connection, if it exists.
         if (pg_connection_status(self::$db) === PGSQL_CONNECTION_OK) {
             pg_close(self::$db);
         }
 
-        //Unlock CSV if it is locked.
+        //Unlock CSV, if it is locked.
         if (self::$fh_locked) {
             flock(self::$fh, LOCK_UN);
         }
@@ -136,7 +145,7 @@ class submitty_student_auto_feed {
      */
     private function validate_csv() {
 
-        if (!is_resource(self::$fh) && get_resource_type(self::$fh) !== "stream") {
+        if (self::$fh === false) {
             $this->log_it("CSV file handle invalid when starting CSV data validation.");
             return false;
         }
@@ -148,8 +157,7 @@ class submitty_student_auto_feed {
         $validate_num_fields = VALIDATE_NUM_FIELDS;
         $rpi_found_non_empty_row = false;  //RPI edge case flag where top row(s) of CSV might have empty data.
 
-        $row = fgetcsv($fh, 0, CSV_DELIM_CHAR);
-        while ($row !== false) {
+        while (($row = fgetcsv(self::$fh, 0, CSV_DELIM_CHAR)) !== false) {
             //Trim whitespace from all fields in $row
             array_walk($row, 'trim');
 
@@ -224,9 +232,12 @@ class submitty_student_auto_feed {
                 continue 2;
             }
 
-            //$row successfully validated.  Include it.
-            //NOTE: Most cases, $row is associated EITHER as a registered course or as a mapped course,
-            //      but it is possible $row is associated as BOTH a registered course and a mapped course.
+            /* -----------------------------------------------------------------
+             * $row successfully validated.  Include it.
+             * NOTE: Most cases, $row is associated EITHER as a registered
+             *       course or as a mapped course but it is possible $row is
+             *       associated as BOTH a registered course and a mapped course.
+             * -------------------------------------------------------------- */
 
             //Include $row in self::$data as a registered course, if applicable.
             if (in_array($course, self::$course_list)) {
@@ -246,13 +257,19 @@ class submitty_student_auto_feed {
                     //Invalidate data file so that upsert is not performed as a safety precaution for system data integrity.
                     $this->log_it("Row {$index}: {$course} has been mapped.  Section {$section} is in feed, but not mapped.");
                     $validation_flag = false;
-                    continue;
                 }
             }
-
-            //Next row
-            $row = fgetcsv(self::$fh, 0, CSV_DELIM_CHAR);
         } //END iterating over CSV data.
+
+        //Bulk of proccesing time is during database upsert, so we might as well
+        //release the CSV now that we are done reading it.
+        if (self::$fh_locked && flock(self::$fh, LOCK_UN)) {
+            self::$fh_locked = false;
+        }
+
+        if (self::$fh !== false && fclose(self::$fh)) {
+            self::$fh = false;
+        }
 
         /* ---------------------------------------------------------------------
          * In the event that a course is registered with Submitty, but that
@@ -294,6 +311,7 @@ class submitty_student_auto_feed {
      * @param string $section section associated with data row
      */
     private function include_row($row, $course, $section) {
+
         self::$data['users'][] = array('user_id'            => $row[COLUMN_USER_ID],
                                        'user_numeric_id'    => $row[COLUMN_NUMERIC_ID],
                                        'user_firstname'     => $row[COLUMN_FIRSTNAME],
@@ -415,7 +433,7 @@ SQL;
     private function open_csv() {
 
         self::$fh = fopen(CSV_FILE, "r");
-        if (self::$fh !== false)
+        if (self::$fh !== false) {
             if (flock(self::$fh, LOCK_SH, $wouldblock)) {
                 self::$fh_locked = true;
                 return true;
@@ -754,8 +772,7 @@ SQL;
             self::$log_msg_queue .= date('m/d/y H:i:s : ', time()) . $msg . PHP_EOL;
         }
     }
-}
-
+} //END class submitty_student_auto_feed
 
 /** @static class to parse command line arguments */
 class cli_args {
@@ -800,7 +817,7 @@ HELP;
             exit(1);
         }
     }
-}
+} //END class cli_args
 
 /* EOF ====================================================================== */
 ?>
