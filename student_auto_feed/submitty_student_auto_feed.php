@@ -68,7 +68,7 @@ class submitty_student_auto_feed {
         $db_host     = DB_HOST;
         $db_user     = DB_LOGIN;
         $db_password = DB_PASSWORD;
-        self::$db = pg_connect("host={$db_host} dbname=submitty user={$db_user} password={$db_password} sslmode=prefer");
+        self::$db = pg_connect("host={$db_host} dbname=submitty user={$db_user} password={$db_password} sslmode=require");
 
         //Make sure there's a DB connection to Submitty.
         if (pg_connection_status(self::$db) !== PGSQL_CONNECTION_OK) {
