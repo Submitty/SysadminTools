@@ -235,7 +235,7 @@ class submitty_student_auto_feed {
             /* -----------------------------------------------------------------
              * $row successfully validated.  Include it.
              * NOTE: Most cases, $row is associated EITHER as a registered
-             *       course or as a mapped course but it is possible $row is
+             *       course or as a mapped course, but it is possible $row is
              *       associated as BOTH a registered course and a mapped course.
              * -------------------------------------------------------------- */
 
@@ -425,7 +425,7 @@ SQL;
     }
 
     /**
-     * Load auto feed data.
+     * Open auto feed CSV data file.
      *
      * @access private
      * @return boolean  indicates success/failure of opening and locking CSV file.
@@ -741,18 +741,17 @@ SQL;
             case pg_query(self::$db, $sql['courses_users']['update']):
                 $this->log_it(strtoupper($course_name) . " (UPDATE) : " . pg_last_error(self::$db));
                 pg_query(self::$db, $sql['rollback']);
-                continue;
+                break;
             case pg_query(self::$db, $sql['courses_users']['insert']):
                 $this->log_it(strtoupper($course_name) . " (INSERT) : " . pg_last_error(self::$db));
                 pg_query(self::$db, $sql['rollback']);
-                continue;
+                break;
              case pg_query_params(self::$db, $sql['courses_users']['dropped_students'], array($course_name, self::$semester)):
                 $this->log_it(strtoupper($course_name) . " (DROPPED STUDENTS) : " . pg_last_error(self::$db));
                 pg_query(self::$db, $sql['rollback']);
-                continue;
+                break;
             default:
                 pg_query(self::$db, $sql['commit']);
-                continue;
             }
         }
 
@@ -780,14 +779,14 @@ class cli_args {
     /** @var array holds all CLI argument flags and their values */
     private static $args            = array();
     /** @var string usage help message */
-    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] (-t [term code])" . PHP_EOL;
+    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] (-t term code)" . PHP_EOL;
     /** @var string short description help message */
     private static $help_short_desc = "Read student enrollment CSV and upsert to Submitty database." . PHP_EOL;
     /** @var string argument list help message */
     private static $help_args_list  = <<<HELP
-Arguments
--h --help       Show this help message.
--t [term code]  Term code associated with student enrollment.
+Arguments:
+-h, --help    Show this help message.
+-t term code  Term code associated with current student enrollment.  Required.
 
 HELP;
 
