@@ -54,7 +54,7 @@ class main {
     public static function run() {
         //make sure we are running from cli
         if (PHP_SAPI !== 'cli') {
-            fprintf(STDERR, "This is a command line script.%s", PHP_EOL);
+            fwrite(STDERR, "This is a command line script." . PHP_EOL);
             exit(1);
         }
 
@@ -67,18 +67,18 @@ class main {
         case "submitty":
         case "dev":
             if (self::get_daemon_user() === false) {
-                fprintf(STDERR, "Could not retrieve Submitty daemon uuid%s.  Aborting.%s", PHP_EOL, PHP_EOL);
+                fwrite(STDERR, "Could not retrieve Submitty daemon uuid." . PHP_EOL . "Aborting." . PHP_EOL);
                 exit(1);
             }
         }
 
         if (posix_getuid() !== 0 && posix_getuid() !== self::$daemon_user['uid']) {
-            fprintf(STDERR, "Execution denied.%s", PHP_EOL);
+            fwrite(STDERR, "Execution denied." . PHP_EOL);
             exit(1);
         }
 
-        //Prfocessing may continue.  Submitty/vagrant systems need to override
-        //config with submitty.json.
+        //Prfocessing may continue.  Submitty/dev modes need to override
+        //self::config with submitty.json.
         switch($args) {
         case "submitty":
             self::override_config();
@@ -98,14 +98,15 @@ class main {
     }
 
     /**
-     * submitty/vagrant servers permit submitty_daemon to execute this script.
+     * submitty/dev modes permit submitty_daemon to execute this script.
      *
      * self::$daemon_user by default mirrors root so by default only root has
      * execution privilege.  This function will attempt to lookup
      * submitty_daemon in submitty_users.json, and when successful, copy that
      * information to self::$daemon_user, therefore permitting submitty_daemon
      * execution privilege.  Submitty_daemon will also need group ownership and
-     * chmod g+rx privilege.
+     * chmod g+rx privilege of this script.  This also assumes the script is
+     * running from submitty/sbin.
      *
      * @access private
      * @static
@@ -137,7 +138,7 @@ class main {
     private static function override_config() {
         $json['config'] = file_get_contents("../config/submitty.json");
         if ($json['config'] === false) {
-            fprintf(STDERR, "Cannot open config/submitty.json%s", PHP_EOL);
+            fwrite(STDERR, "Cannot open config/submitty.json" . PHP_EOL);
             exit(1);
         }
 
@@ -304,7 +305,7 @@ class main {
     private static function log(string $msg) {
         $datestamp = date("m-d-Y");
         error_log(sprintf("%s %s", $datestamp, $msg), 0);
-        fprintf(STDERR, "%s%s", $msg, PHP_EOL);
+        fwrite(STDERR, $msg . PHP_EOL);
     }
 } //END class main
 
@@ -383,7 +384,7 @@ HELP;
         }
 
         //If we reach here, invalid CLI arguments were given.
-        fprintf(STDERR, self::$help_usage);
+        fwrite(STDERR, self::$help_usage);
         exit(1);
     }
 } //END class parse_args
