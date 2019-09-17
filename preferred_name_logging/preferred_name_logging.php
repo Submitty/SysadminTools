@@ -259,7 +259,7 @@ class main {
             fwrite(STDERR, $msg);
         }
 
-        if (is_array(self::$config['log_emails'])) {
+        if (!is_null(self::$config['log_emails'])) {
             $send_msg = "Error log from Submitty preferred name logging." . PHP_EOL . $msg;
             $send_msg = wordwrap($send_msg, 70);
             foreach(self::$config['log_emails'] as $email) {
