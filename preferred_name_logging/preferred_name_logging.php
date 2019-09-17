@@ -14,20 +14,14 @@
 class main {
 
     /**
-     * Config
+     * Operating config determined by main::get_config().
      *
-     * @var const array
+     * @staticvar array
      * @access private
      */
-    private static $config = array(
-        'timezone'                 => "America/New_York",
-        'postgresql_logfile_path'  => "/var/log/postgresql/",
-        'submitty_logfile_path'    => "/var/log/submitty/",
-        'postgresql_logfile'       => "postgresql",
-        'submitty_logfile'         => "submitty_preferred_names",
-        'submitty_log_retention'   => 7
-    );
+    private static $config = array();
 
+    //Do not change these.
     private const POSTGRESQL_LOG_ROW_COUNT = 23;
     private const PSQL_VALIDATION_UPDATE   = 7;
     private const PSQL_VALIDATION_LOG      = 11;
@@ -35,21 +29,17 @@ class main {
     private const PSQL_DATA_DATE           = 8;
     private const PSQL_DATA_AUTH           = 19;
     private const PSQL_DATA_PFN            = 14;
-
-    /** @var Not a config option.  Do NOT manually change. */
-    private static $psql_log_time_offset = -86400;
-    /** @var Not a config option.  Do NOT manually change. */
-    private static $daemon_user = array(
-        'name' => "root",
-        'uid'  => 0,
-        'gid'  => 0
-    );
+    private const POSTGRESQL_LOGDIR        = '/psql/';
+    private const POSTGRESQL_LOGFILE       = 'postgresql';
+    private const PREFERRED_NAMES_LOGDIR   = '/preferred_names/';
+    private const PREFERRED_NAMES_LOGFILE  = 'preferred_names';
+    private const ERROR_LOGFILE            = 'errors.log';
 
     /**
-     * Method to invoke to run this program: main::run()
+     * Main process.  Invoke with main::run()
      *
-     * @access public
      * @static
+     * @access public
      */
     public static function run() {
         //make sure we are running from cli
@@ -58,124 +48,87 @@ class main {
             exit(1);
         }
 
-        //check for which server to run on.
-        $args = cli_args::parse_args();
-
-        //must be run as root or submitty_daemon (submitty/dev only).
-        //submitty/dev mode needs to lookup submitty_daemon user info.
-        switch($args) {
-        case "submitty":
-        case "dev":
-            if (self::get_daemon_user() === false) {
-                fwrite(STDERR, "Could not retrieve Submitty daemon uuid." . PHP_EOL . "Aborting." . PHP_EOL);
-                exit(1);
-            }
-        }
-
-        if (posix_getuid() !== 0 && posix_getuid() !== self::$daemon_user['uid']) {
-            fwrite(STDERR, "Execution denied." . PHP_EOL);
-            exit(1);
-        }
-
-        //Prfocessing may continue.  Submitty/dev modes need to override
-        //self::config with submitty.json.
-        switch($args) {
-        case "submitty":
-            self::override_config();
-            break;
-        case "dev":
-            self::override_config();
-            //dev should read today's psql CSV.
-            self::$psql_log_time_offset = 0;
-            break;
-        }
-
-        date_default_timezone_set(self::$config['timezone']);
+        ini_set(display_errors, "0");
+        self::get_config();
         self::parse_and_write_logs();
         self::log_retention_and_deletion();
 
         exit(0);
     }
 
-    /**
-     * submitty/dev modes permit submitty_daemon to execute this script.
-     *
-     * self::$daemon_user by default mirrors root so by default only root has
-     * execution privilege.  This function will attempt to lookup
-     * submitty_daemon in submitty_users.json, and when successful, copy that
-     * information to self::$daemon_user, therefore permitting submitty_daemon
-     * execution privilege.  Submitty_daemon will also need group ownership and
-     * chmod g+rx privilege of this script.  This also assumes the script is
-     * running from submitty/sbin.
-     *
-     * @access private
-     * @static
-     */
-    private static function get_daemon_user() {
-        $json = file_get_contents("../config/submitty_users.json");
-        if ($json === false) {
-            return false;
-        } else {
-            $json = json_decode($json, true);
-            self::$daemon_user = array(
-                'name' => $json['daemon_user'],
-                'uid'  => $json['daemon_uid'],
-                'gid'  => $json['daemon_gid']
-            );
-
-            return true;
-        }
-    }
-
-    /**
-     * Override self::$config with a few elements from submitty.json
+     /**
+     * Read JSON config files to build self::$config array.
      *
      * This function assumes that the script is running from submitty/sbin.
      *
-     * @access private
      * @static
+     * @access private
      */
-    private static function override_config() {
-        $json['config'] = file_get_contents("../config/submitty.json");
-        if ($json['config'] === false) {
-            fwrite(STDERR, "Cannot open config/submitty.json" . PHP_EOL);
+    private static function get_config() {
+
+        self::$config['mode'] = cli_args::parse_args();
+        //'prod' reads yesterday's CSV.  'dev' read's most current CSV.
+        self::$config['psql_log_time_offset'] = (self::$config['mode'] === 'prod' ? -86400 : 0);
+
+        $json = file_get_contents("../config/submitty.json");
+        if ($json === false) {
+            // Error logging not configured yet.
+            fwrite(STDERR, print_r(error_get_last(), true));
             exit(1);
         }
 
-        $json['config'] = json_decode($json['config'], true);
-        self::$config['timezone'] = $json['config']['timezone'];
-        self::$config['postgresql_logfile_path'] = $json['config']['site_log_path'] . "/psql/";
-        self::$config['submitty_logfile_path'] = $json['config']['site_log_path'] . "/preferred_names/";
+        $json = json_decode($json, true);
+        date_default_timezone_set($json['timezone']);
+        self::$config['postgresql_logfile_path'] = $json['site_log_path'] . self::POSTGRESQL_LOGDIR;
+        self::$config['pfn_logfile_path'] = $json['site_log_path'] . self::PREFERRED_NAMES_LOGDIR;
+
+        $json = file_get_contents("../config/preferred_name_logging.json");
+        if ($json !== false) {
+            $json = json_decode($json, true);
+
+            if (array_key_exists('log_emails', $json)) {
+                if (is_array($json['log_emails'])) {
+                    self::$config['log_emails'] = $json['log_emails'];
+                } else {
+                    self::$config['log_emails'] = array($json['log_emails']);
+                }
+            } else {
+                self::$config['log_emails'] = null;
+            }
+
+            if (array_key_exists('log_file_retention', $json)) {
+                self::$config['log_file_retention'] = intval($json['log_file_retention']);
+            } else {
+                self::$config['log_file_retention'] = 7;
+            }
+        }
     }
 
     /**
-     * Process method
+     * Scrape psql log and write preferred_names log
      *
-     * @access private
      * @static
+     * @access private
      */
     private static function parse_and_write_logs() {
         //Check to make sure Submitty log directory path exists.  Create it if needed.
-        if (file_exists(self::$config['submitty_logfile_path']) === false) {
-            if (mkdir(self::$config['submitty_logfile_path'], 0700) === false) {
-                self::log("Submitty log folder needed, mkdir failed.");
-                exit(1);
-            }
+        if (file_exists(self::$config['pfn_logfile_path']) === false) {
+            self::log("Submitty log folder missing.");
+            exit(1);
         }
 
         //Prepare submitty preferred name change log file for today.
-        $submitty_logfile = sprintf("%s%s_%s.log", self::$config['submitty_logfile_path'], self::$config['submitty_logfile'], date("Y-m-d"));
-        $submitty_fh = fopen($submitty_logfile, 'w');
-        if ($submitty_fh === false) {
+        $pfn_log_file = sprintf("%s%s_%s.log", self::$config['pfn_logfile_path'], self::PREFERRED_NAMES_LOGFILE, date("Y-m-d"));
+        $pfn_fh = fopen($pfn_log_file, 'w');
+        if ($pfn_fh === false) {
             self::log("Cannot create Submitty logfile.");
             exit(1);
         } else {
-            fwrite($submitty_fh, "Log opened." . PHP_EOL);
+            fwrite($pfn_fh, "Log opened." . PHP_EOL);
         }
 
         //There can be multiple psql log files that need to be read.
-        //But we want the ones dated one day prior (hence subtract 86400 seconds which is one day)
-        $preg_str = sprintf("~^%s\-%s_\d{6}\.csv$~", self::$config['postgresql_logfile'], preg_quote(date("Y-m-d", time() + self::$psql_log_time_offset)));
+        $preg_str = sprintf("~^%s\-%s_\d{6}\.csv$~", self::POSTGRESQL_LOGFILE, preg_quote(date("Y-m-d", time() + self::$config['psql_log_time_offset'])));
         $logfiles = preg_grep($preg_str, scandir(self::$config['postgresql_logfile_path']));
 
         foreach ($logfiles as $logfile) {
@@ -191,7 +144,7 @@ class main {
                 //Validation.  Any case is true, validation fails and row is ignored.
                 switch(true) {
                 case count($psql_row) !== self::POSTGRESQL_LOG_ROW_COUNT;
-                    self::log(sprintf("NOTICE: PSQL log row %d had %d columns.  %d columns expected.  Row ignored.%s", $psql_row_num, count($psql_row), self::$config['postgresql_log_row_count']));
+                    self::log(sprintf("NOTICE: PSQL log row %d had %d columns.  %d columns expected.  Row ignored.", $psql_row_num, count($psql_row), self::$config['postgresql_log_row_count']));
                 case $psql_row[self::PSQL_VALIDATION_UPDATE] !== "UPDATE":
                 case $psql_row[self::PSQL_VALIDATION_LOG] !== "LOG":
                 case $psql_row[self::PSQL_VALIDATION_PFN] !== "PREFERRED_NAME DATA UPDATE":
@@ -209,14 +162,12 @@ class main {
 
                 //Get "AUTH" token (who logged the change).
                 $key = array();
-                if (preg_match("~/\* AUTH: \"[\w\-]+\" \*/~", $psql_row[19]) === 1) {
+                if (preg_match("~/\* AUTH: \"[\w\-]+\" \*/~", $psql_row[self::PSQL_DATA_AUTH]) === 1) {
                     $key['start'] = strpos($psql_row[self::PSQL_DATA_AUTH], "/* AUTH: ") + 3;
                     $key['end'] = strpos($psql_row[self::PSQL_DATA_AUTH], " */");
                     $auth = " | " . substr($psql_row[self::PSQL_DATA_AUTH], $key['start'], $key['end'] - $key['start']);
                 } else {
                     $auth = " | AUTH NOT LOGGED ";
-                    //Anything sent to STDERR gets emailed by cron.
-                    fprintf(STDERR, "WARNING: AUTH NOT LOGGED%s%s", PHP_EOL, var_export($psql_row, true));
                 }
 
                 //Get user_id and preferred name change tokens.
@@ -229,8 +180,6 @@ class main {
                     $user_id = " | USER_ID: {$preferred_names_data[$key+1]} ";
                 } else {
                     $user_id = " | USER_ID NOT LOGGED ";
-                    //Anything sent to STDERR gets emailed by cron.
-                    fprintf(STDERR, "WARNING: USER ID NOT LOGGED%s%s", PHP_EOL, var_export($psql_row, true));
                 }
 
                 $key = array_search("PREFERRED_FIRSTNAME", $preferred_names_data);
@@ -248,21 +197,21 @@ class main {
                 // It is possible that no Preferred Lastname was logged, in which we can ignore an move on.
 
                 //Build preferred name change log entry.
-                $submitty_log = $date . $auth . $user_id;
+                $pfn_log_row = $date . $auth . $user_id;
                 if (isset($preferred_name['first'])) {
-                    $submitty_log .= " | PREFERRED_FIRSTNAME OLD: {$preferred_name['first']['old']} NEW: {$preferred_name['first']['new']}";
+                    $pfn_log_row .= " | PREFERRED_FIRSTNAME OLD: {$preferred_name['first']['old']} NEW: {$preferred_name['first']['new']}";
                 } else {
-                    $submitty_log .= " | PREFERRED_FIRSTNAME UNCHANGED";
+                    $pfn_log_row .= " | PREFERRED_FIRSTNAME UNCHANGED";
                 }
 
                 if (isset($preferred_name['last'])) {
-                    $submitty_log .= " | PREFERRED_LASTNAME OLD: {$preferred_name['last']['old']} NEW: {$preferred_name['last']['new']}";
+                    $pfn_log_row .= " | PREFERRED_LASTNAME OLD: {$preferred_name['last']['old']} NEW: {$preferred_name['last']['new']}";
                 } else {
-                    $submitty_log .= " | PREFERRED_LASTNAME UNCHANGED";
+                    $pfn_log_row .= " | PREFERRED_LASTNAME UNCHANGED";
                 }
 
                 //Write log entry and go to next row.
-                fwrite($submitty_fh, $submitty_log . PHP_EOL);
+                fwrite($pfn_fh, $pfn_log_row . PHP_EOL);
                 $psql_row = fgetcsv($psql_fh);
                 $psql_row_num++;
             }
@@ -270,26 +219,26 @@ class main {
             fclose($psql_fh);
         }
 
-        fwrite($submitty_fh, "Log closed." . PHP_EOL);
-        fclose($submitty_fh);
+        fwrite($pfn_fh, "Log closed." . PHP_EOL);
+        fclose($pfn_fh);
     }
 
     /**
      * Automatically remove old logs
      *
-     * @access private
      * @static
+     * @access private
      */
     private static function log_retention_and_deletion() {
         $preg_str = sprintf("~^%s_%s.log$~", self::$config['submitty_logfile'], preg_quote(date("m-d-Y")));
-        $logfiles = preg_grep($preg_str, scandir(self::$config['submitty_logfile_path']));
+        $logfiles = preg_grep($preg_str, scandir(self::$config['pfn_logfile_path']));
         $expiration_epoch = (int)(strtotime(date('Y-m-d')) / 86400) - self::$config['submitty_log_retention'];
 
         foreach($logfiles as $logfile) {
             $datestamp = substr($logfile, strpos($logfile, "_") + 1, 10);
             $datestamp_epoch = (int)(strtotime($datestamp) / 86400);
             if ($datestamp_epoch < $expiration_epoch) {
-                if (unlink(self::$config['submitty_logfile_path'] . $logfile) === false) {
+                if (unlink(self::$config['pfn_logfile_path'] . $logfile) === false) {
                     self::log("Could not delete old logfile: {$logfile}");
                 }
             }
@@ -297,50 +246,55 @@ class main {
     }
 
     /**
-     * Log messages to error log and STDERR.
+     * Log messages to error log.  Also log to STDERR in 'dev' mode.
      *
-     * @access private
      * @static
+     * @access private
      */
     private static function log(string $msg) {
-        $datestamp = date("m-d-Y");
-        error_log(sprintf("%s %s", $datestamp, $msg), 0);
-        fwrite(STDERR, $msg . PHP_EOL);
+        $msg = sprintf("%s %s%s%s%s", date("m-d-Y"), $msg, PHP_EOL, var_export(error_get_last(), true), PHP_EOL);
+        error_log($msg, 3, self::$config['pfn_logfile_path'] . self::ERROR_LOGFILE);
+
+        if (self::$config['mode'] === 'dev') {
+            fwrite(STDERR, $msg);
+        }
+
+        if (is_array(self::$config['log_emails'])) {
+            $send_msg = "Error log from Submitty preferred name logging." . PHP_EOL . $msg;
+            $send_msg = wordwrap($send_msg, 70);
+            foreach(self::$config['log_emails'] as $email) {
+                error_log($send_msg, 1, $email);
+            }
+        }
     }
 } //END class main
 
-/**
- * class to parse command line arguments
- *
- * @static
- */
+/** Class to parse command line arguments */
 class cli_args {
 
-    /** @var string usage help message */
+    /** @staticvar string usage help message */
     private static $help_usage      = <<<HELP
-CLI options: [-h | --help] (-m | --mode (psql | submitty | dev))
+CLI options: [-h | --help] (-m | --mode (prod | dev))
 
 
 HELP;
 
-    /** @var string short description help message */
+    /** @staticvar string short description help message */
     private static $help_short_desc =<<<HELP
 Scrape Postgresql CSV log and report changes in preferred name data.
 
 
 HELP;
 
-    /** @var string argument list help message */
+    /** @staticvar string argument list help message */
     private static $help_args_list  = <<<HELP
 Arguments
 -h --help    Show this help message.
--m --mode    Required.  Use 'submitty' if postgresql operates on the same server
-             or instance as the Submitty system.  Use 'psql' when postgresql
-             operates on a different server or instance as the Submitty system
-             (this will also require manual changes to postgresl.conf).
-             Use 'dev' to run the script immediately on the most recent psql
-             log, such as in a development environment (vagrant, etc.).  'dev'
-             assumes that postgresql exists locally with Submitty.
+-m --mode    Required.  Use 'prod' when running in a production environment.
+             The script will be assumed to run on a cron schedule, and will
+             scrape from psql's log from a day ago.   Use 'dev' to run the
+             script immediately on the most recent psql log, such as in a
+             development environment (vagrant, etc.).
 
 
 HELP;
@@ -351,6 +305,7 @@ HELP;
      * Called with 'cli_args::parse_args()'.  If cli arguments are invalid,
      * script will print usage help and exit code 1.
      *
+     * @static
      * @access public
      * @return string command process.
      */
@@ -368,16 +323,14 @@ HELP;
         // -m
         case array_key_exists('m', $args):
             switch($args['m']) {
-            case "psql":
-            case "submitty":
+            case "prod":
             case "dev":
                 return $args['m'];
             }
         // --mode
         case array_key_exists('mode', $args):
             switch($args['mode']) {
-            case "psql":
-            case "submitty":
+            case "prod":
             case "dev":
                 return $args['mode'];
             }
@@ -389,9 +342,8 @@ HELP;
     }
 } //END class parse_args
 
-
 //Start processing.
 main::run();
 
-// EOF
+//EOF
 ?>
