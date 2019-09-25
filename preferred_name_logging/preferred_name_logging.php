@@ -48,7 +48,7 @@ class main {
             exit(1);
         }
 
-        ini_set(display_errors, "0");
+        ini_set('display_errors', '0');
         self::get_config();
         self::parse_and_write_logs();
         self::log_retention_and_deletion();
@@ -70,37 +70,40 @@ class main {
         //'prod' reads yesterday's CSV.  'dev' read's most current CSV.
         self::$config['psql_log_time_offset'] = (self::$config['mode'] === 'prod' ? -86400 : 0);
 
-        $json = file_get_contents("../config/submitty.json");
-        if ($json === false) {
+        if (file_exists("../config/submitty.json")) {
+            $json = file_get_contents("../config/submitty.json");
+            $json = json_decode($json, true);
+        } else {
             // Error logging not configured yet.
             fwrite(STDERR, print_r(error_get_last(), true));
             exit(1);
         }
 
-        $json = json_decode($json, true);
         date_default_timezone_set($json['timezone']);
         self::$config['postgresql_logfile_path'] = $json['site_log_path'] . self::POSTGRESQL_LOGDIR;
         self::$config['pfn_logfile_path'] = $json['site_log_path'] . self::PREFERRED_NAMES_LOGDIR;
 
-        $json = file_get_contents("../config/preferred_name_logging.json");
-        if ($json !== false) {
+        if (file_exists("../config/preferred_name_logging.json")) {
+            $json = file_get_contents("../config/preferred_name_logging.json");
             $json = json_decode($json, true);
+        } else {
+            $json = array();
+        }
 
-            if (array_key_exists('log_emails', $json)) {
-                if (is_array($json['log_emails'])) {
-                    self::$config['log_emails'] = $json['log_emails'];
-                } else {
-                    self::$config['log_emails'] = array($json['log_emails']);
-                }
+        if (array_key_exists('log_emails', $json)) {
+            if (is_array($json['log_emails'])) {
+                self::$config['log_emails'] = $json['log_emails'];
             } else {
-                self::$config['log_emails'] = null;
+                self::$config['log_emails'] = array($json['log_emails']);
             }
+        } else {
+            self::$config['log_emails'] = null;
+        }
 
-            if (array_key_exists('log_file_retention', $json)) {
-                self::$config['log_file_retention'] = intval($json['log_file_retention']);
-            } else {
-                self::$config['log_file_retention'] = 7;
-            }
+        if (array_key_exists('log_file_retention', $json)) {
+            self::$config['log_file_retention'] = (int)$json['log_file_retention'];
+        } else {
+            self::$config['log_file_retention'] = 7;
         }
     }
 
@@ -111,7 +114,7 @@ class main {
      * @access private
      */
     private static function parse_and_write_logs() {
-        //Check to make sure Submitty log directory path exists.  Create it if needed.
+        //Check to make sure Submitty log directory path exists.
         if (file_exists(self::$config['pfn_logfile_path']) === false) {
             self::log("Submitty log folder missing.");
             exit(1);
@@ -230,15 +233,15 @@ class main {
      * @access private
      */
     private static function log_retention_and_deletion() {
-        $preg_str = sprintf("~^%s_%s.log$~", self::$config['submitty_logfile'], preg_quote(date("m-d-Y")));
+        $preg_str = sprintf("~^%s_%s.log$~", self::$config['pfn_logfile_path'], preg_quote(date("m-d-Y")));
         $logfiles = preg_grep($preg_str, scandir(self::$config['pfn_logfile_path']));
-        $expiration_epoch = (int)(strtotime(date('Y-m-d')) / 86400) - self::$config['submitty_log_retention'];
+        $expiration_epoch = (int)(strtotime(date('Y-m-d')) / 86400) - self::$config['log_file_retention'];
 
         foreach($logfiles as $logfile) {
             $datestamp = substr($logfile, strpos($logfile, "_") + 1, 10);
             $datestamp_epoch = (int)(strtotime($datestamp) / 86400);
             if ($datestamp_epoch < $expiration_epoch) {
-                if (unlink(self::$config['pfn_logfile_path'] . $logfile) === false) {
+                if (unlink(self::$config['log_file_retention'] . $logfile) === false) {
                     self::log("Could not delete old logfile: {$logfile}");
                 }
             }
