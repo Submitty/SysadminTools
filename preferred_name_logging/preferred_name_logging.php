@@ -227,25 +227,37 @@ class main {
     }
 
     /**
-     * Automatically remove old logs
+     * Automatically remove expired postgresql and preferred name change logs.
+     *
+     * Note that there is 86400 seconds in a day.
      *
      * @static
      * @access private
      */
     private static function log_retention_and_deletion() {
-        $preg_str = sprintf("~^%s_%s.log$~", self::$config['pfn_logfile_path'], preg_quote(date("m-d-Y")));
-        $logfiles = preg_grep($preg_str, scandir(self::$config['pfn_logfile_path']));
-        $expiration_epoch = (int)(strtotime(date('Y-m-d')) / 86400) - self::$config['log_file_retention'];
-
-        foreach($logfiles as $logfile) {
-            $datestamp = substr($logfile, strpos($logfile, "_") + 1, 10);
-            $datestamp_epoch = (int)(strtotime($datestamp) / 86400);
-            if ($datestamp_epoch < $expiration_epoch) {
-                if (unlink(self::$config['log_file_retention'] . $logfile) === false) {
-                    self::log("Could not delete old logfile: {$logfile}");
+        $remove_logfiles = function($logfiles, $expiration_epoch) {
+            foreach($logfiles as $logfile) {
+                $datestamp = substr($logfile, strpos($logfile, "_") + 1, 10);
+                $datestamp_epoch = strtotime($datestamp) / 86400;
+                if ($datestamp_epoch < $expiration_epoch) {
+                    if (unlink(self::$config['log_file_retention'] . $logfile) === false) {
+                        self::log("Could not delete expired logfile: {$logfile}");
+                    }
                 }
             }
-        }
+        };
+
+        // Remove expired postgresql logs
+        $regex_pattern = sprintf("~^%s_\d{4}\-\d{2}\-\d{2}\-\d{6}\.csv|log$~", self::POSTGRESQL_LOGFILE);
+        $logfiles = preg_grep($regex_pattern, scandir(self::$config['postgresql_logfile_path']));
+        $expiration_epoch = strtotime(date('Y-m-d')) / 86400 - 2;
+        $remove_logfiles($logfiles, $expiration_epoch);
+
+        // Remove expired preferred name change logs
+        $regex_pattern = sprintf("~^%s_\d{4}\-\d{2}\-\d{2}\.log$~", self::PREFERRED_NAMES_LOGFILE);
+        $logfiles = preg_grep($regex_pattern, scandir(self::$config['pfn_logfile_path']));
+        $expiration_epoch = strtotime(date('Y-m-d')) / 86400 - self::$config['log_file_retention'];
+        $remove_logfiles($logfiles, $expiration_epoch);
     }
 
     /**
