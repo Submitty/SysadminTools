@@ -36,7 +36,7 @@ The following configuration will be applied to postgresql:
 log_destination = 'csvlog'
 logging_collector = on
 log_directory = '/var/log/postgresql'
-log_filename = 'postgresql-%Y-%m-%d_%H%M%S.log'
+log_filename = 'postgresql_%Y-%m-%d-%H%M%S.log'
 log_file_mode = 0640
 log_rotation_age = 1d
 log_rotation_size = 0

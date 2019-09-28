@@ -131,7 +131,7 @@ class main {
         }
 
         //There can be multiple psql log files that need to be read.
-        $preg_str = sprintf("~^%s\-%s_\d{6}\.csv$~", self::POSTGRESQL_LOGFILE, preg_quote(date("Y-m-d", time() + self::$config['psql_log_time_offset'])));
+        $preg_str = sprintf("~^%s_%s\-\d{6}\.csv$~", self::POSTGRESQL_LOGFILE, preg_quote(date("Y-m-d", time() + self::$config['psql_log_time_offset'])));
         $logfiles = preg_grep($preg_str, scandir(self::$config['postgresql_logfile_path']));
 
         foreach ($logfiles as $logfile) {
