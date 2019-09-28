@@ -24,7 +24,7 @@ Submitty's installation scripts will configure postgresql to write its logs to
 
 This script will scrape the previous day's Postgresql log for any logged
 changes to any user's preferred names.  It will then create a daily log of
-*preferred name changes* within `/var/local/submitty/logs/preferred_names`.
+*preferred name changes* within `/var/local/submitty/logs/preferred_names/`.
 
 This script will also remove postgresql logs older than 2 days as postgresql's
 own log rotation system will not selectively remove outdated logs.
@@ -61,8 +61,8 @@ else in the file will be ignored).
   This is either a singular email address or a list of email addresses.  The
   script will send error messages to the email address(es) listed.
 
-  If this is a list, key values are ignored.  But you could set key values to be
-  descriptive to who owns a particular email address.
+  If this is a list, key values are ignored.  But you could set key values to
+  document who owns a particular email address.
 
   Set to `null` to turn this off.  Default setting is `null`.
 
@@ -72,7 +72,7 @@ else in the file will be ignored).
   Default setting is 7.
 
   Example json:
-  ```json
+```json
 {
     "log_emails":
     {
