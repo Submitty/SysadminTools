@@ -68,8 +68,7 @@ else in the file will be ignored).
 
 * `log_file_retention`
   A whole number representing how many days of preferred name change logs to
-  keep.  *This does not affect the lifetime cycle of postgresql's logs*
-  Default setting is 7.
+  keep.  *This does not affect postgresql's logs.*  Default setting is 7.
 
   Example json:
 ```json
