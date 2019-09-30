@@ -32,7 +32,7 @@ class main {
     private const POSTGRESQL_LOGDIR        = '/psql/';
     private const POSTGRESQL_LOGFILE       = 'postgresql';
     private const PREFERRED_NAMES_LOGDIR   = '/preferred_names/';
-    private const PREFERRED_NAMES_LOGFILE  = 'preferred_names';
+    private const PREFERRED_NAMES_LOGFILE  = 'preferred-names';
     private const ERROR_LOGFILE            = 'errors.log';
 
     /**
@@ -235,13 +235,13 @@ class main {
      * @access private
      */
     private static function log_retention_and_deletion() {
-        $remove_logfiles = function($logfiles, $expiration_epoch) {
+        $remove_logfiles = function($path, $logfiles, $expiration_epoch) {
             foreach($logfiles as $logfile) {
                 $datestamp = substr($logfile, strpos($logfile, "_") + 1, 10);
-                $datestamp_epoch = strtotime($datestamp) / 86400;
+                $datestamp_epoch = intdiv(strtotime($datestamp), 86400);
                 if ($datestamp_epoch < $expiration_epoch) {
-                    if (unlink(self::$config['log_file_retention'] . $logfile) === false) {
-                        self::log("Could not delete expired logfile: {$logfile}");
+                    if (unlink($path . $logfile) === false) {
+                        self::log("Unable to delete expired log {$logfile}");
                     }
                 }
             }
@@ -250,14 +250,14 @@ class main {
         // Remove expired postgresql logs
         $regex_pattern = sprintf("~^%s_\d{4}\-\d{2}\-\d{2}\-\d{6}\.csv|log$~", self::POSTGRESQL_LOGFILE);
         $logfiles = preg_grep($regex_pattern, scandir(self::$config['postgresql_logfile_path']));
-        $expiration_epoch = strtotime(date('Y-m-d')) / 86400 - 2;
-        $remove_logfiles($logfiles, $expiration_epoch);
+        $expiration_epoch = intdiv(time(), 86400) - 2;
+        $remove_logfiles(self::$config['postgresql_logfile_path'], $logfiles, $expiration_epoch);
 
         // Remove expired preferred name change logs
         $regex_pattern = sprintf("~^%s_\d{4}\-\d{2}\-\d{2}\.log$~", self::PREFERRED_NAMES_LOGFILE);
         $logfiles = preg_grep($regex_pattern, scandir(self::$config['pfn_logfile_path']));
-        $expiration_epoch = strtotime(date('Y-m-d')) / 86400 - self::$config['log_file_retention'];
-        $remove_logfiles($logfiles, $expiration_epoch);
+        $expiration_epoch = intdiv(time(), 86400) - self::$config['log_file_retention'];
+        $remove_logfiles(self::$config['pfn_logfile_path'], $logfiles, $expiration_epoch);
     }
 
     /**
@@ -267,7 +267,7 @@ class main {
      * @access private
      */
     private static function log(string $msg) {
-        $msg = sprintf("%s %s%s%s%s", date("m-d-Y"), $msg, PHP_EOL, var_export(error_get_last(), true), PHP_EOL);
+        $msg = sprintf("%s %s%s%s%s", date("m-d-Y H:i:s"), $msg, PHP_EOL, var_export(error_get_last(), true), PHP_EOL);
         error_log($msg, 3, self::$config['pfn_logfile_path'] . self::ERROR_LOGFILE);
 
         if (self::$config['mode'] === 'dev') {
