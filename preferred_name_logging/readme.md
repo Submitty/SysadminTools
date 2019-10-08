@@ -8,7 +8,7 @@ updated in Submitty's databases.  Then the sysadmin tool in this folder will
 scrape the Postgresql logfile and record only those entries that showed
 preferred name change.
 
-This is setup and cofnigured by Submitty during system installation and should
+This is setup and configured by Submitty during system installation and should
 automatically operate daily at 2:05AM.
 
 ## FERPA
@@ -27,22 +27,24 @@ changes to any user's preferred names.  It will then create a daily log of
 *preferred name changes* within `/var/local/submitty/logs/preferred_names/`.
 
 This script will also remove postgresql logs older than 2 days as postgresql's
-own log rotation system will not selectively remove outdated logs.
+own log rotation will not selectively remove outdated logs.
 
 ## postgresql.conf
 
-The following configuration will be applied to postgresql:
+Postgresql's original configuration is first copied to `postgresql.conf.backup`.
+The following changes will be applied:
 ```
 log_destination = 'csvlog'
 logging_collector = on
 log_directory = '/var/log/postgresql'
-log_filename = 'postgresql_%Y-%m-%d-%H%M%S.log'
+log_filename = 'postgresql_%Y-%m-%dT%H%M%S.log'
 log_file_mode = 0640
 log_rotation_age = 1d
 log_rotation_size = 0
-log_min_messages = log
-log_min_duration_statement = 0
-log_line_prefix = '%t '
+log_min_messages = warning
+log_min_duration_statement = -1
+log_statement = 'ddl'
+log_error_verbosity = default
 ```
 
 ## preferred_names.json
@@ -70,7 +72,7 @@ else in the file will be ignored).
   A whole number representing how many days of preferred name change logs to
   keep.  *This does not affect postgresql's logs.*  Default setting is 7.
 
-  Example json:
+## Example json:
 ```json
 {
     "log_emails":

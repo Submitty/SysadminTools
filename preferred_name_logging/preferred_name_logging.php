@@ -131,7 +131,7 @@ class main {
         }
 
         //There can be multiple psql log files that need to be read.
-        $preg_str = sprintf("~^%s_%s\-\d{6}\.csv$~", self::POSTGRESQL_LOGFILE, preg_quote(date("Y-m-d", time() + self::$config['psql_log_time_offset'])));
+        $preg_str = sprintf("~^%s_%sT\d{6}\.csv$~", self::POSTGRESQL_LOGFILE, preg_quote(date("Y-m-d", time() + self::$config['psql_log_time_offset'])));
         $logfiles = preg_grep($preg_str, scandir(self::$config['postgresql_logfile_path']));
 
         foreach ($logfiles as $logfile) {
@@ -267,7 +267,7 @@ class main {
      * @access private
      */
     private static function log(string $msg) {
-        $msg = sprintf("%s %s%s%s%s", date("m-d-Y H:i:s"), $msg, PHP_EOL, var_export(error_get_last(), true), PHP_EOL);
+        $msg = sprintf("%s %s%sDetails: %s%s", date("m-d-Y H:i:s"), $msg, PHP_EOL, print_r(error_get_last(), true), PHP_EOL);
         error_log($msg, 3, self::$config['pfn_logfile_path'] . self::ERROR_LOGFILE);
 
         if (self::$config['mode'] === 'dev') {
