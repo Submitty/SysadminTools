@@ -170,7 +170,7 @@ class main {
                     $key['end'] = strpos($psql_row[self::PSQL_DATA_AUTH], " */");
                     $auth = " | " . substr($psql_row[self::PSQL_DATA_AUTH], $key['start'], $key['end'] - $key['start']);
                 } else {
-                    $auth = " | AUTH NOT LOGGED ";
+                    $auth = " | AUTH NOT LOGGED";
                 }
 
                 //Get user_id and preferred name change tokens.
@@ -180,9 +180,9 @@ class main {
                 //user_id token
                 $key = array_search("USER_ID:", $preferred_names_data);
                 if ($key !== false) {
-                    $user_id = " | USER_ID: {$preferred_names_data[$key+1]} ";
+                    $user_id = " | USER_ID: {$preferred_names_data[$key+1]}";
                 } else {
-                    $user_id = " | USER_ID NOT LOGGED ";
+                    $user_id = " | USER_ID NOT LOGGED";
                 }
 
                 $key = array_search("PREFERRED_FIRSTNAME", $preferred_names_data);
