@@ -150,6 +150,14 @@ class submitty_student_auto_feed {
             return false;
         }
 
+        //Consume and discard header row, if it exists, and init $row_number.
+        if (HEADER_ROW_EXISTS) {
+            fgets(self::$fh);
+            $row_number = 1;
+        } else {
+            $row_number = 0;
+        }
+
         //Prepare validation
         //$validation_flag will invalidate the entire CSV when set to false.
         //A log of all failing rows is desired, so we do not bail out of this process at the first sign of invalidation.
@@ -158,6 +166,9 @@ class submitty_student_auto_feed {
         $rpi_found_non_empty_row = false;  //RPI edge case flag where top row(s) of CSV might have empty data.
 
         while (($row = fgetcsv(self::$fh, 0, CSV_DELIM_CHAR)) !== false) {
+            //Current row number (needed for error logging).
+            $row_number++;
+
             //Trim whitespace from all fields in $row
             array_walk($row, 'trim');
 
@@ -166,17 +177,17 @@ class submitty_student_auto_feed {
             //Invalidation will disqualify the data file to protect DB data integrity.
             $num_fields = count($row);
             if ($num_fields !== $validate_num_fields) {
-                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.  CSV disqualified.");
+                $this->log_it("Row {$row_number} has {$num_fields} columns.  {$validate_num_fields} expected.  CSV disqualified.");
                 $validation_flag = false;
                 continue;
             } else if (empty(array_filter($row, function($field) { return !empty($field); }))) {
                 //RPI edge case to skip a correctly sized row of all empty fields — at the top of a data file, before proper data is read — without invalidating the whole data file.
                 if (!$rpi_found_non_empty_row) {
-                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — at top of CSV.  Ignoring row.");
+                    $this->log_it("Row {$row_number} is correct size ({$validate_num_fields}), but all columns are empty — at top of CSV.  Ignoring row.");
                     continue;
                 } else {
                     //Correctly sized empty row below data row(s) — invalidate data file.
-                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — below a non-empty data row.  CSV disqualified.");
+                    $this->log_it("Row {$row_number} is correct size ({$validate_num_fields}), but all columns are empty — below a non-empty data row.  CSV disqualified.");
                     $validation_flag = false;
                     continue;
                 }
@@ -202,32 +213,32 @@ class submitty_student_auto_feed {
             switch(false) {
             //Check term code (skips when set to null).
             case ((is_null(EXPECTED_TERM_CODE)) ? true : ($row[COLUMN_TERM_CODE] === EXPECTED_TERM_CODE)):
-                $this->log_it("Row {$index} failed validation for mismatched term code.");
+                $this->log_it("Row {$row_number} failed validation for mismatched term code.");
                 $validation_flag = false;
                 continue 2;
             //User ID must contain only lowercase alpha, numbers, underscore, and hyphen
             case boolval((preg_match("~^[a-z0-9_\-]+$~", $row[COLUMN_USER_ID]))):
-                $this->log_it("Row {$index} failed user ID validation ({$row[COLUMN_USER_ID]}).");
+                $this->log_it("Row {$row_number} failed user ID validation ({$row[COLUMN_USER_ID]}).");
                 $validation_flag = false;
                 continue 2;
             //First name must be alpha characters, white-space, or certain punctuation.
             case boolval((preg_match("~^[a-zA-Z'`\-\. ]+$~", $row[COLUMN_FIRSTNAME]))):
-                $this->log_it("Row {$index} failed validation for student first name ({$row[COLUMN_FNAME]}).");
+                $this->log_it("Row {$row_number} failed validation for student first name ({$row[COLUMN_FIRSTNAME]}).");
                 $validation_flag = false;
                 continue 2;
             //Last name must be alpha characters, white-space, or certain punctuation.
             case boolval((preg_match("~^[a-zA-Z'`\-\. ]+$~", $row[COLUMN_LASTNAME]))):
-                $this->log_it("Row {$index} failed validation for student last name ({$row[COLUMN_LNAME]}).");
+                $this->log_it("Row {$row_number} failed validation for student last name ({$row[COLUMN_LASTNAME]}).");
                 $validation_flag = false;
                 continue 2;
             //Student registration section must be alphanumeric, '_', or '-'.
             case boolval((preg_match("~^[a-zA-Z0-9_\-]+$~", $row[COLUMN_SECTION]))):
-                $this->log_it("Row {$index} failed validation for student section ({$section}).");
+                $this->log_it("Row {$row_number} failed validation for student section ({$section}).");
                 $validation_flag = false;
                 continue 2;
             //Check email address for appropriate format. e.g. "student@university.edu", "student@cs.university.edu", etc.
             case boolval((preg_match("~^[^(),:;<>@\\\"\[\]]+@(?!\-)[a-zA-Z0-9\-]+(?<!\-)(\.[a-zA-Z0-9]+)+$~", $row[COLUMN_EMAIL]))):
-                $this->log_it("Row {$index} failed validation for student email ({$row[COLUMN_EMAIL]}).");
+                $this->log_it("Row {$row_number} failed validation for student email ({$row[COLUMN_EMAIL]}).");
                 $validation_flag = false;
                 continue 2;
             }
