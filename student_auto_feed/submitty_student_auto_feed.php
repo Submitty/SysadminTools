@@ -30,28 +30,28 @@ new submitty_student_auto_feed();
 
 /** primary process class */
 class submitty_student_auto_feed {
-    /** @staticvar string semester code */
+    /** @staticvar string $semester semester code */
     private static $semester;
 
-    /** @staticvar array list of courses registered in Submitty */
+    /** @staticvar array $course_list list of courses registered in Submitty */
     private static $course_list;
 
-    /** @staticvar array list that describes courses mapped from one to another */
+    /** @staticvar array $course_mappings list that describes courses mapped from one to another */
     private static $course_mappings;
 
-    /** @staticvar resource "master" Submitty database connection */
+    /** @staticvar resource $db "master" Submitty database connection */
     private static $db;
 
-    /** @staticvar resource file handle to read CSV */
+    /** @staticvar resource $fh file handle to read CSV */
     private static $fh = false;
 
-    /** @staticvar boolean set to true when CSV file attains a lock */
+    /** @staticvar boolean $fh_locked set to true when CSV file attains a lock */
     private static $fh_locked = false;
 
-    /** @staticvar array all CSV data to be upserted */
+    /** @staticvar array $data all CSV data to be upserted */
     private static $data = array('users' => array(), 'courses_users' => array());
 
-    /** @staticvar string ongoing string of messages to write to logfile */
+    /** @staticvar string $log_msg_queue ongoing string of messages to write to logfile */
     private static $log_msg_queue = "";
 
     public function __construct() {
@@ -140,7 +140,6 @@ class submitty_student_auto_feed {
      * Run some error checks and copy file data to class property.
      *
      * @access private
-     * @param  array    $csv_data  rows of data read from enrollment CSV.
      * @return boolean  indicates success that CSV data passes validation tests
      */
     private function validate_csv() {
