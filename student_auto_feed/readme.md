@@ -30,28 +30,13 @@ enrollment CSV data file.
 
 ---
 
-The semester must be either manually specified as command line argument
-`-t`, or guessed by calendar month and year with command line argument `-g`.
+The semester must be specified as command line argument `-t`.
 
 For example:
 
 `php ./submitty_student_auto_feed.php -t s18`
 
 Will run the accounts script for the "s18" (Spring 2018) term.
-
-`php ./submitty_student_auto_feed.php -g`
-
-Will guess the term code based on the calendar month and year.  The term code
-will follow the pattern of TYY, where
-
-- T is the term
-  - **s** is for Spring (Jan - May)
-  - **u** is for Summer (Jun - Jul)
-  - **f** is for Fall (Aug-Dec)
-- YY is the two digit year
-- e.g. April 15, 2018 will correspond to "s18" (Spring 2018).
-
-`-g` and `-t` are mutually exclusive.
 
 ---
 
@@ -62,7 +47,7 @@ policies and practices.
 
 ---
 
-Requires at least PHP 5.6 with pgsql, iconv, and ssh2 extensions.
+Requires at least PHP 5.6 with pgsql and iconv.
 
 NOTE: Some modification of code may be necessary to work with your school's
 information systems.

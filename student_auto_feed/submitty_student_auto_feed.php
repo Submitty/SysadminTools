@@ -783,6 +783,27 @@ SQL;
     }
 } //END class submitty_student_auto_feed
 
+
+/** @static class to read CSV from imap as file attachment */
+class imap {
+
+    /** @staticvar resource */
+    private static $imap_conn;
+
+    public static function imap_connect() {
+        $hostname = IMAP_HOSTNAME;
+        $port     = IMAP_PORT;
+        $usermame = IMAP_USERNAME;
+        $password = IMAP_PASSWORD;
+        $inbox    = IMAP_INBOX;
+        $options  = "/" . implode("/", IMAP_OPTIONS);
+        $auth = "{{$hostname}:{$port}{$options}}{$inbox}";
+
+        self::$imap_conn = imap_open($auth, $username, $password);
+        return bool(self::$imap_conn);
+    }
+}
+
 /** @static class to parse command line arguments */
 class cli_args {
 
