@@ -15,7 +15,6 @@ class json_remote {
     private static $username    = JSON_REMOTE_USERNAME;
     private static $password    = JSON_REMOTE_PASSWORD;
     private static $remote_path = JSON_REMOTE_PATH;
-    private static $local_path  = JSON_LOCAL_PATH;
     private static $csv_file    = JSON_LOCAL_CSV_FILE;
 
     public function __construct() {
@@ -65,7 +64,7 @@ class json_remote {
     }
 
     private function validate_remote_connect() {
-        if (is_resource(self::$ssh2_conn) && get_resource_type(self::$ssh_conn) === "SSH2 Session") {
+        if (is_resource(self::$ssh2_conn) && get_resource_type(self::$ssh2_conn) === "SSH2 Session") {
             return true;
         }
 
@@ -84,7 +83,7 @@ class json_remote {
 
     private function close_csv() {
         if (is_resource(self::$csv_fh) && get_resource_type(self::$csv_fh) === "stream") {
-            fclose(self::$fh);
+            fclose(self::$csv_fh);
         }
     }
 
@@ -119,7 +118,7 @@ class json_remote {
         //Read json data from each file.
         foreach ($files as $file) {
             $data_file = JSON_REMOTE_PATH . $file;
-            $ssh2_stream = ssh2_exec($ssh2_conn, "/bin/cat {$data_file}");
+            $ssh2_stream = ssh2_exec(self::$ssh2_conn, "/bin/cat {$data_file}");
             stream_set_blocking($ssh2_stream, true);
             $json_data = stream_get_contents($ssh2_stream);
             $decoded_data = json_decode($json_data, true, 512, JSON_OBJECT_AS_ARRAY);
