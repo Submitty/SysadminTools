@@ -1,12 +1,14 @@
 #!/usr/bin/env php
 <?php
-
 require "config.php";
+
 new json_remote();
+exit(0);
 
 /** class to retrieve json files from remote server and convert data to single CSV */
 class json_remote {
     private static $ssh2_conn   = null;
+    private static $csv_fh      = null;
     private static $hostname    = JSON_REMOTE_HOSTNAME;
     private static $port        = JSON_REMOTE_PORT;
     private static $fingerprint = JSON_REMOTE_FINGERPRINT;
@@ -14,12 +16,20 @@ class json_remote {
     private static $password    = JSON_REMOTE_PASSWORD;
     private static $remote_path = JSON_REMOTE_PATH;
     private static $local_path  = JSON_LOCAL_PATH;
+    private static $csv_file    = JSON_LOCAL_CSV_FILE;
 
     public function __construct() {
-
+        //Main
+        switch(false) {
+        case $this->remote_connect():
+            exit(1);
+        case $this->convert_json_to_csv():
+            exit(1);
+        }
     }
 
     public function __destruct() {
+        $this->close_csv();
         $this->remote_disconnect();
     }
 
@@ -68,42 +78,70 @@ class json_remote {
         }
     }
 
+    private function open_csv() {
+        self::$csv_fh = fopen(self::$csv_file, "w");
+    }
+
+    private function close_csv() {
+        if (is_resource(self::$csv_fh) && get_resource_type(self::$csv_fh) === "stream") {
+            fclose(self::$fh);
+        }
+    }
+
     /**
-     * Secure copy JSON data files from remote server.
+     * Convert JSON to CSV
      *
-     * @return boolean true on success.
+     * Read remote JSON data via secure shell and call function to convert and
+     * push that data to CSV file.
+     *
+     * @return boolean true on success, false on failure.
      */
-    private function retrieve_json_files() {
+    private function convert_json_to_csv() {
         if (!$this->validate_remote_connect()) {
+            fwrite("NOT connected to remote server when CSV conversion called.\n");
             return false;
         }
 
-        //Get a list of files to secure-copy.
+        //Get a list of JSON files to read.
         $command = sprintf("/bin/ls %s", self::$remote_path);
         $ssh2_stream = ssh2_exec(self::$ssh2_conn, $command);
         stream_set_blocking($ssh2_stream, true);
         $files = stream_get_contents($ssh2_stream);
-        $files = preg_split("~\r\n|\n|\r~", $files);
-        $files = array_filter($files, function($file) {
-            return (!empty($file));
-        });
+        $files = explode("\n", $files);
+        $files = preg_grep("~\.json$~", $files);
+        if (empty($files)) {
+            fwrite(STDERR, "No remote JSON files found.\n");
+            return false;
+        }
 
-        //secure-copy files from list.
-        $is_success = true; //assumed unless proven otherwise.
+        $this->open_csv();
+
+        //Read json data from each file.
         foreach ($files as $file) {
-            $remote_file = self::$remote_path . $file;
-            $local_file  = self::$local_path  . $file;
-            if (ssh2_scp_recv($ssh2_conn, $remote_file, $local_file) === false) {
-                fprintf(STDERR, "Failed to scp %s to %s\n%s", $remote_file, $local_file, error_get_last());
-                $is_success = false;
+            $data_file = JSON_REMOTE_PATH . $file;
+            $ssh2_stream = ssh2_exec($ssh2_conn, "/bin/cat {$data_file}");
+            stream_set_blocking($ssh2_stream, true);
+            $json_data = stream_get_contents($ssh2_stream);
+            $decoded_data = json_decode($json_data, true, 512, JSON_OBJECT_AS_ARRAY);
+
+            //Write out CSV data by rows.
+            foreach ($decoded_data as $row) {
+                $csv_row = array_fill(0, VALIDATE_NUM_FIELDS, null);
+                $csv_row[COLUMN_FIRSTNAME]     = $row['first_name'];
+                $csv_row[COLUMN_LASTNAME]      = $row['last_name'];
+                $csv_row[COLUMN_EMAIL]         = $row['email'];
+                $csv_row[COLUMN_USER_ID]       = $row['rcs'];
+                $csv_row[COLUMN_NUMERIC_ID]    = $row['rin'];
+                $csv_row[COLUMN_REGISTRATION]  = STUDENT_REGISTERED_CODES[0];
+                $csv_row[COLUMN_COURSE_PREFIX] = $row['course_prefix'];
+                $csv_row[COLUMN_COURSE_NUMBER] = $row['course_number'];
+                $csv_row[COLUMN_SECTION]       = $row['course_section'];
+                $csv_row[COLUMN_TERM_CODE]     = EXPECTED_TERM_CODE;
+                fputcsv(self::$csv_fh, $csv_row, CSV_DELIM_CHAR, '"', "\\");
             }
         }
 
-        return $is_success;
-    }
-
-    private function build_csv() {
-
+        return true;
     }
 }
 
