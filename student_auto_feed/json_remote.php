@@ -5,10 +5,15 @@ require "config.php";
 new json_remote();
 exit(0);
 
-/** class to retrieve json files from remote server and convert data to single CSV */
+/** class to read json files from remote server and combine/convert data to CSV */
 class json_remote {
-    private static $ssh2_conn   = null;
-    private static $csv_fh      = null;
+    /** @staticvar resource secure shell connection. */
+    private static $ssh2_conn = null;
+
+    /** @staticvar resource file handle to write CSV */
+    private static $csv_fh = null;
+
+    //Config properties from config.php.  DO NOT ALTER.
     private static $hostname    = JSON_REMOTE_HOSTNAME;
     private static $port        = JSON_REMOTE_PORT;
     private static $fingerprint = JSON_REMOTE_FINGERPRINT;
@@ -32,6 +37,12 @@ class json_remote {
         $this->remote_disconnect();
     }
 
+    /**
+     * Establish secure shell session to remote server.
+     *
+     * @access private
+     * @return boolean true on success, false otherwise.
+     */
     private function remote_connect() {
         //Ensure any existing connection is elegantly closed.
         $this->remote_disconnect();
@@ -63,6 +74,12 @@ class json_remote {
         return true;
     }
 
+    /**
+     * Validate secure shell connection.
+     *
+     * @access private
+     * @return boolean true when connected, false otherwise.
+     */
     private function validate_remote_connect() {
         if (is_resource(self::$ssh2_conn) && get_resource_type(self::$ssh2_conn) === "SSH2 Session") {
             return true;
@@ -70,6 +87,11 @@ class json_remote {
 
         return false;
     }
+    /**
+     * Disconnect secure shell from remote server.
+     *
+     * @access private
+     */
 
     private function remote_disconnect() {
         if ($this->validate_remote_connect()) {
@@ -77,6 +99,11 @@ class json_remote {
         }
     }
 
+    /**
+     * Create/Open CSV file for writing.  Any old data is wiped.
+     *
+     * @access private
+     */
     private function open_csv() {
         self::$csv_fh = fopen(self::$csv_file, "w");
     }
