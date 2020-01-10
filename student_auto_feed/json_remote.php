@@ -1,26 +1,28 @@
 #!/usr/bin/env php
 <?php
+/**
+ * Helper script for using JSON data set of student enrolment for Submitty.
+ *
+ * The student auto feed script is designed to read a CSV export of student
+ * enrollment.  Another enrollment data set is being provided as JSON for RPI.
+ * This script will read the JSON data and write out a compatible CSV for the
+ * auto feed script.  This helper script was created at the request of
+ * bmcutler@github and is provided as is.
+ *
+ * @author Peter Bailie, Rensselaer Polytechnic Institute
+ */
 require "config.php";
 
 new json_remote();
 exit(0);
 
-/** class to read json files from remote server and combine/convert data to CSV */
+/** Class to read json files from remote server and combine/convert data to CSV */
 class json_remote {
     /** @staticvar resource secure shell connection. */
     private static $ssh2_conn = null;
 
     /** @staticvar resource file handle to write CSV */
     private static $csv_fh = null;
-
-    //Config properties from config.php.  DO NOT ALTER.
-    private static $hostname    = JSON_REMOTE_HOSTNAME;
-    private static $port        = JSON_REMOTE_PORT;
-    private static $fingerprint = JSON_REMOTE_FINGERPRINT;
-    private static $username    = JSON_REMOTE_USERNAME;
-    private static $password    = JSON_REMOTE_PASSWORD;
-    private static $remote_path = JSON_REMOTE_PATH;
-    private static $csv_file    = JSON_LOCAL_CSV_FILE;
 
     public function __construct() {
         //Main
@@ -48,7 +50,7 @@ class json_remote {
         $this->remote_disconnect();
 
         //Connect.
-        self::$ssh2_conn = ssh2_connect(self::$hostname, self::$port);
+        self::$ssh2_conn = ssh2_connect(JSON_REMOTE_HOSTNAME, JSON_REMOTE_PORT);
 
         //Validate connection.
         if (!$this->validate_remote_connect()) {
@@ -58,15 +60,15 @@ class json_remote {
 
         //Validate fingerprint to prevent communicating with an imposter server.
         $remote_fingerprint = ssh2_fingerprint(self::$ssh2_conn, SSH2_FINGERPRINT_SHA1 | SSH2_FINGERPRINT_HEX);
-        if ($remote_fingerprint !== self::$fingerprint) {
-            fprintf(STDERR, "Remote server fingerprint does not match.\nExpected: %s\nActual: %s\n", self::$fingerprint, $remote_fingerprint);
+        if ($remote_fingerprint !== JSON_REMOTE_FINGERPRINT) {
+            fprintf(STDERR, "Remote server fingerprint does not match.\nExpected: %s\nActual: %s\n", JSON_REMOTE_FINGERPRINT, $remote_fingerprint);
             $this->remote_disconnect();
             return false;
         }
 
         //Authenticate session.
-        if (ssh2_auth_password(self::$ssh2_conn, self::$username, self::$password) === false) {
-            fprintf(STDERR, "Could not authenticate %s@%s.\n", self::$username, self::$hostname);
+        if (ssh2_auth_password(self::$ssh2_conn, JSON_REMOTE_USERNAME, JSON_REMOTE_PASSWORD) === false) {
+            fprintf(STDERR, "Could not authenticate %s@%s.\n", JSON_REMOTE_USERNAME, JSON_REMOTE_HOSTNAME);
             return false;
         }
 
@@ -105,9 +107,14 @@ class json_remote {
      * @access private
      */
     private function open_csv() {
-        self::$csv_fh = fopen(self::$csv_file, "w");
+        self::$csv_fh = fopen(JSON_LOCAL_CSV_FILE, "w");
     }
 
+    /**
+     * Close CSV file.
+     *
+     * @access private
+     */
     private function close_csv() {
         if (is_resource(self::$csv_fh) && get_resource_type(self::$csv_fh) === "stream") {
             fclose(self::$csv_fh);
@@ -117,19 +124,19 @@ class json_remote {
     /**
      * Convert JSON to CSV
      *
-     * Read remote JSON data via secure shell and call function to convert and
-     * push that data to CSV file.
+     * Read remote JSON data via secure shell.  Convert and push that data to
+     * CSV file.
      *
      * @return boolean true on success, false on failure.
      */
     private function convert_json_to_csv() {
         if (!$this->validate_remote_connect()) {
-            fwrite("NOT connected to remote server when CSV conversion called.\n");
+            fwrite(STDERR, "NOT connected to remote server when CSV conversion called.\n");
             return false;
         }
 
         //Get a list of JSON files to read.
-        $command = sprintf("/bin/ls %s", self::$remote_path);
+        $command = sprintf("/bin/ls %s", JSON_REMOTE_PATH);
         $ssh2_stream = ssh2_exec(self::$ssh2_conn, $command);
         stream_set_blocking($ssh2_stream, true);
         $files = stream_get_contents($ssh2_stream);
