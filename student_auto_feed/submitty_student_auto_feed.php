@@ -30,28 +30,28 @@ new submitty_student_auto_feed();
 
 /** primary process class */
 class submitty_student_auto_feed {
-    /** @staticvar string $semester semester code */
+    /** @static @property string $semester semester code */
     private static $semester;
 
-    /** @staticvar array $course_list list of courses registered in Submitty */
+    /** @static @property array $course_list list of courses registered in Submitty */
     private static $course_list;
 
-    /** @staticvar array $course_mappings list that describes courses mapped from one to another */
+    /** @static @property array $course_mappings list that describes courses mapped from one to another */
     private static $course_mappings;
 
-    /** @staticvar resource $db "master" Submitty database connection */
+    /** @static @property resource $db "master" Submitty database connection */
     private static $db;
 
-    /** @staticvar resource $fh file handle to read CSV */
+    /** @static @property resource $fh file handle to read CSV */
     private static $fh = false;
 
-    /** @staticvar boolean $fh_locked set to true when CSV file attains a lock */
+    /** @static @property boolean $fh_locked set to true when CSV file attains a lock */
     private static $fh_locked = false;
 
-    /** @staticvar array $data all CSV data to be upserted */
+    /** @static @property array $data all CSV data to be upserted */
     private static $data = array('users' => array(), 'courses_users' => array());
 
-    /** @staticvar string $log_msg_queue ongoing string of messages to write to logfile */
+    /** @static @property string $log_msg_queue ongoing string of messages to write to logfile */
     private static $log_msg_queue = "";
 
     public function __construct() {
@@ -784,13 +784,20 @@ SQL;
 } //END class submitty_student_auto_feed
 
 
-/** @static class to read CSV from imap as file attachment */
+/** @static class to read CSV attachment from imap */
 class imap {
 
-    /** @staticvar resource */
+    /** @static @property resource */
     private static $imap_conn;
 
-    public static function imap_connect() {
+    /**
+     * Open connection to IMAP server.
+     *
+     * @static
+     * @access private
+     * @return boolean true when connection established, false otherwise.
+     */
+    private static function imap_connect() {
         $hostname = IMAP_HOSTNAME;
         $port     = IMAP_PORT;
         $usermame = IMAP_USERNAME;
@@ -802,18 +809,52 @@ class imap {
         self::$imap_conn = imap_open($auth, $username, $password);
         return bool(self::$imap_conn);
     }
+
+    /**
+     * Close connection to IMAP server.
+     *
+     * @static
+     * @access private
+     */
+    private static function imap_disconnect() {
+        imap_close(self::$imap_conn);
+    }
+
+    /**
+     * Connect to IMAP, get CSV attachment, close IMAP, and return CSV data as string.
+     *
+     * @static
+     * @access public
+     * @return mixed CSV data as string or false on failure.
+     */
+    public static get_csv_data() {
+        if (!self::imap_connect()) {
+            return false;
+        }
+
+        $imap_from = IMAP_FROM;
+        $imap_subject = IMAP_SUBJECT;
+        $search_string = "NEW FROM \"{$imap_from}\" SUBJECT \"{$imap_subject}\"";
+        $messages = imap_search(self::$imap_conn, $search_string);
+
+        //Should only be one message to process.
+        if (count($messages) > 1) {
+            return false;
+        }
+
+        //WIP
 }
 
 /** @static class to parse command line arguments */
 class cli_args {
 
-    /** @var array holds all CLI argument flags and their values */
+    /** @static @property array holds all CLI argument flags and their values */
     private static $args            = array();
-    /** @var string usage help message */
+    /** @static @property string usage help message */
     private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] (-t term code)" . PHP_EOL;
-    /** @var string short description help message */
+    /** @static @property string short description help message */
     private static $help_short_desc = "Read student enrollment CSV and upsert to Submitty database." . PHP_EOL;
-    /** @var string argument list help message */
+    /** @static @property string argument list help message */
     private static $help_args_list  = <<<HELP
 Arguments:
 -h, --help    Show this help message.

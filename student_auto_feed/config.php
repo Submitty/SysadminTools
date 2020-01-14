@@ -74,6 +74,8 @@ define('CSV_FILE', '/path/to/datafile.csv');
 define('CSV_DELIM_CHAR', chr(9));
 
 //Properties for database access.  ***THESE NEED TO BE SET.
+//If multiple instances of Submitty are being supported, these may be defined as
+//parrallel arrays.
 define('DB_HOST',     'submitty.cs.myuniversity.edu');
 define('DB_LOGIN',    'hsdbu');
 define('DB_PASSWORD', 'DB.p4ssw0rd');
@@ -109,6 +111,8 @@ define('IMAP_USERNAME', 'user');          //DO NOT USE IN PRODUCTION
 define('IMAP_PASSWORD', 'IMAP_P@ssW0rd'); //DO NOT USE IN PRODUCTION
 define('IMAP_INBOX',    'INBOX');
 define('IMAP_OPTIONS',  array('imap', 'ssl'));
+define('IMAP_FROM',     'Data Warehouse');
+define('IMAP_SUBJECT',  'Your daily CSV');
 
 //Remote JSON
 //To Do: Instructions
