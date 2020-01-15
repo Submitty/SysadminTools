@@ -118,7 +118,7 @@ define('IMAP_SUBJECT',  'Your daily CSV');
 //To Do: Instructions
 define('JSON_REMOTE_HOSTNAME',    'localhost');
 define('JSON_REMOTE_PORT',        22);
-define('JSON_REMOTE_FINGERPRINT', '00112233445566778899aabbccddeeff00112233');
+define('JSON_REMOTE_FINGERPRINT', '00112233445566778899AABBCCDDEEFF00112233');
 define('JSON_REMOTE_USERNAME',    'user');          //DO NOT USE IN PRODUCTION
 define('JSON_REMOTE_PASSWORD',    'JSON_P@ssW0rd'); //DO NOT USE IN PRODUCTION
 define('JSON_REMOTE_PATH',        '/path/to/files/');

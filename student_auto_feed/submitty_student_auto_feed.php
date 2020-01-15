@@ -22,7 +22,7 @@
  *
  * Requires minimum PHP version 7.0 with pgsql, and iconv extensions.
  *
- * @author Peter Bailie, Systems Programmer (RPI research computing)
+ * @author Peter Bailie, Rensselaer Polytechnic Institute
  */
 
 require "config.php";

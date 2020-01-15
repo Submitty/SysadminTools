@@ -6,8 +6,9 @@
  * The student auto feed script is designed to read a CSV export of student
  * enrollment.  Another enrollment data set is being provided as JSON for RPI.
  * This script will read the JSON data and write out a compatible CSV for the
- * auto feed script.  This helper script was created at the request of
- * bmcutler@github and is provided as is.
+ * auto feed script.  Run this script as a cronjob with MAILTO set and STDERR
+ * will be emailed rather than printed to the console.  This helper script was
+ * created at the request of bmcutler@github and is provided as is.
  *
  * @author Peter Bailie, Rensselaer Polytechnic Institute
  */
@@ -156,6 +157,20 @@ class json_remote {
             stream_set_blocking($ssh2_stream, true);
             $json_data = stream_get_contents($ssh2_stream);
             $decoded_data = json_decode($json_data, true, 512, JSON_OBJECT_AS_ARRAY);
+
+            //Validation.  Ignore row should any data point be empty.
+            switch(true) {
+            case is_empty($row['first_name']):
+            case is_empty($row['last_name']):
+            case is_empty($row['email']):
+            case is_empty($row['rcs']):
+            case is_empty($row['rin']):
+            case is_empty($row['course_prefix']):
+            case is_empty($row['course_number']):
+            case is_empty($row['course_section']):
+                fprintf(STDERR, "Row Discarded:\n%s", var_export($row, true));
+                continue 2;
+            }
 
             //Write out CSV data by rows.
             foreach ($decoded_data as $row) {
