@@ -62,12 +62,19 @@ class submitty_student_auto_feed {
         }
 
         //Get semester from CLI arguments.
-        self::$semester = cli_args::parse_args();
+        $opts = cli_args::parse_args();
+        self::$semester = $opts['t'];
 
         //Connect to "master" submitty DB.
-        $db_host     = DB_HOST;
-        $db_user     = DB_LOGIN;
-        $db_password = DB_PASSWORD;
+        if (array_key_exists('s', $opts)) {
+            $db_user     = strtok($opts['s'], ":");
+            $db_password = strtok("@");
+            $db_host     = strtok("\0");
+        } else {
+            $db_user     = DB_LOGIN;
+            $db_password = DB_PASSWORD;
+            $db_host     = DB_HOST;
+        }
         self::$db = pg_connect("host={$db_host} dbname=submitty user={$db_user} password={$db_password} sslmode=require");
 
         //Make sure there's a DB connection to Submitty.
@@ -872,7 +879,7 @@ HELP;
      */
     public static function parse_args() {
 
-        self::$args = getopt('ht:', array('help'));
+        self::$args = getopt('hst:', array('help'));
 
         switch(true) {
         case array_key_exists('h', self::$args):
@@ -882,7 +889,7 @@ HELP;
             print self::$help_args_list . PHP_EOL;
             exit(0);
         case array_key_exists('t', self::$args):
-            return self::$args['t'];
+            return self::$args;
         default:
             print self::$help_usage . PHP_EOL;
             exit(1);
