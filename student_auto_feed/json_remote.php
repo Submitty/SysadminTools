@@ -158,22 +158,22 @@ class json_remote {
             $json_data = stream_get_contents($ssh2_stream);
             $decoded_data = json_decode($json_data, true, 512, JSON_OBJECT_AS_ARRAY);
 
-            //Validation.  Ignore row should any data point be empty.
-            switch(true) {
-            case is_empty($row['first_name']):
-            case is_empty($row['last_name']):
-            case is_empty($row['email']):
-            case is_empty($row['rcs']):
-            case is_empty($row['rin']):
-            case is_empty($row['course_prefix']):
-            case is_empty($row['course_number']):
-            case is_empty($row['course_section']):
-                fprintf(STDERR, "Row Discarded:\n%s", var_export($row, true));
-                continue 2;
-            }
-
             //Write out CSV data by rows.
             foreach ($decoded_data as $row) {
+                //Validation.  Ignore row should any data point be empty.
+                switch(true) {
+                case empty($row['first_name']):
+                case empty($row['last_name']):
+                case empty($row['email']):
+                case empty($row['rcs']):
+                case empty($row['rin']):
+                case empty($row['course_prefix']):
+                case empty($row['course_number']):
+                case empty($row['course_section']):
+                    fprintf(STDERR, "Row Discarded:\n%s", var_export($row, true));
+                    continue 2;
+                }
+
                 $csv_row = array_fill(0, VALIDATE_NUM_FIELDS, null);
                 $csv_row[COLUMN_FIRSTNAME]     = $row['first_name'];
                 $csv_row[COLUMN_LASTNAME]      = $row['last_name'];
