@@ -66,10 +66,10 @@ class submitty_student_auto_feed {
         self::$semester = $opts['t'];
 
         //Connect to "master" submitty DB.
-        if (array_key_exists('s', $opts)) {
-            $db_user     = strtok($opts['s'], ":");
+        if (array_key_exists('a', $opts)) {
+            $db_user     = strtok($opts['a'], ":");
             $db_password = strtok("@");
-            $db_host     = strtok("\0");
+            $db_host     = strtok("");
         } else {
             $db_user     = DB_LOGIN;
             $db_password = DB_PASSWORD;
@@ -834,7 +834,7 @@ class imap {
      * @access public
      * @return mixed CSV data as string or false on failure.
      */
-    public static get_csv_data() {
+    public static function get_csv_data() {
         if (!self::imap_connect()) {
             return false;
         }
@@ -850,6 +850,7 @@ class imap {
         }
 
         //WIP
+    }
 }
 
 /** @static class to parse command line arguments */
@@ -858,14 +859,16 @@ class cli_args {
     /** @static @property array holds all CLI argument flags and their values */
     private static $args            = array();
     /** @static @property string usage help message */
-    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] (-t term code)" . PHP_EOL;
+    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] [-a auth str] (-t term code)" . PHP_EOL;
     /** @static @property string short description help message */
     private static $help_short_desc = "Read student enrollment CSV and upsert to Submitty database." . PHP_EOL;
     /** @static @property string argument list help message */
     private static $help_args_list  = <<<HELP
 Arguments:
 -h, --help    Show this help message.
+-a auth str   Specify user:password@server, overriding config.php.  Optional.
 -t term code  Term code associated with current student enrollment.  Required.
+
 
 HELP;
 
@@ -879,7 +882,7 @@ HELP;
      */
     public static function parse_args() {
 
-        self::$args = getopt('hst:', array('help'));
+        self::$args = getopt('ha:t:', array('help'));
 
         switch(true) {
         case array_key_exists('h', self::$args):

@@ -90,12 +90,12 @@ class json_remote {
 
         return false;
     }
+
     /**
      * Disconnect secure shell from remote server.
      *
      * @access private
      */
-
     private function remote_disconnect() {
         if ($this->validate_remote_connect()) {
             ssh2_disconnect(self::$ssh2_conn);
