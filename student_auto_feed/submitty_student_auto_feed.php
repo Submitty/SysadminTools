@@ -578,7 +578,9 @@ SET
     user_firstname=upsert_users.user_firstname,
     user_lastname=upsert_users.user_lastname,
     user_preferred_firstname=
-        CASE WHEN user_updated=FALSE AND instructor_updated=FALSE
+        CASE WHEN user_updated=FALSE
+            AND instructor_updated=FALSE
+            AND COALESCE(users.user_preferred_firstname, '')=''
         THEN upsert_users.user_preferred_firstname
         ELSE users.user_preferred_firstname END,
     user_email=upsert_users.user_email
@@ -842,10 +844,10 @@ class imap {
         $imap_from = IMAP_FROM;
         $imap_subject = IMAP_SUBJECT;
         $search_string = "NEW FROM \"{$imap_from}\" SUBJECT \"{$imap_subject}\"";
-        $messages = imap_search(self::$imap_conn, $search_string);
+        $emails = imap_search(self::$imap_conn, $search_string);
 
         //Should only be one message to process.
-        if (count($messages) > 1) {
+        if (count($emails) > 1) {
             return false;
         }
 
@@ -866,7 +868,7 @@ class cli_args {
     private static $help_args_list  = <<<HELP
 Arguments:
 -h, --help    Show this help message.
--a auth str   Specify user:password@server, overriding config.php.  Optional.
+-a auth str   Specify 'user:password@server', overriding config.php.  Optional.
 -t term code  Term code associated with current student enrollment.  Required.
 
 
