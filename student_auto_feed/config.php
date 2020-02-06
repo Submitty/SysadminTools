@@ -102,17 +102,17 @@ define('EXPECTED_TERM_CODE', '201705');
 //Header row, if it exists, must be discarded during processing.
 define('HEADER_ROW_EXISTS', true);
 
-//IMAP
+//Remote IMAP
 //To Do: Instructions
-define('USE_IMAP',      true);
-define('IMAP_HOSTNAME', 'localhost');
-define('IMAP_PORT',     '993');
-define('IMAP_USERNAME', 'user');          //DO NOT USE IN PRODUCTION
-define('IMAP_PASSWORD', 'IMAP_P@ssW0rd'); //DO NOT USE IN PRODUCTION
-define('IMAP_INBOX',    'INBOX');
-define('IMAP_OPTIONS',  array('imap', 'ssl'));
-define('IMAP_FROM',     'Data Warehouse');
-define('IMAP_SUBJECT',  'Your daily CSV');
+define('IMAP_HOSTNAME',   'localhost');
+define('IMAP_PORT',       '993');
+define('IMAP_USERNAME',   'user');          //DO NOT USE IN PRODUCTION
+define('IMAP_PASSWORD',   'IMAP_P@ssW0rd'); //DO NOT USE IN PRODUCTION
+define('IMAP_FOLDER',     'INBOX');
+define('IMAP_OPTIONS',    array('imap', 'ssl'));
+define('IMAP_FROM',       'Data Warehouse');
+define('IMAP_SUBJECT',    'Your daily CSV');
+define('IMAP_ATTACHMENT', 'submitty_enrollments.csv');
 
 //Remote JSON
 //To Do: Instructions

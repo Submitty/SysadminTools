@@ -20,7 +20,7 @@
  *
  * Will run the auto feed for the Spring 2018 semester.
  *
- * Requires minimum PHP version 7.0 with pgsql, and iconv extensions.
+ * Requires minimum PHP version 7.0 with pgsql and iconv extensions.
  *
  * @author Peter Bailie, Rensselaer Polytechnic Institute
  */
@@ -791,69 +791,6 @@ SQL;
         }
     }
 } //END class submitty_student_auto_feed
-
-
-/** @static class to read CSV attachment from imap */
-class imap {
-
-    /** @static @property resource */
-    private static $imap_conn;
-
-    /**
-     * Open connection to IMAP server.
-     *
-     * @static
-     * @access private
-     * @return boolean true when connection established, false otherwise.
-     */
-    private static function imap_connect() {
-        $hostname = IMAP_HOSTNAME;
-        $port     = IMAP_PORT;
-        $usermame = IMAP_USERNAME;
-        $password = IMAP_PASSWORD;
-        $inbox    = IMAP_INBOX;
-        $options  = "/" . implode("/", IMAP_OPTIONS);
-        $auth = "{{$hostname}:{$port}{$options}}{$inbox}";
-
-        self::$imap_conn = imap_open($auth, $username, $password);
-        return bool(self::$imap_conn);
-    }
-
-    /**
-     * Close connection to IMAP server.
-     *
-     * @static
-     * @access private
-     */
-    private static function imap_disconnect() {
-        imap_close(self::$imap_conn);
-    }
-
-    /**
-     * Connect to IMAP, get CSV attachment, close IMAP, and return CSV data as string.
-     *
-     * @static
-     * @access public
-     * @return mixed CSV data as string or false on failure.
-     */
-    public static function get_csv_data() {
-        if (!self::imap_connect()) {
-            return false;
-        }
-
-        $imap_from = IMAP_FROM;
-        $imap_subject = IMAP_SUBJECT;
-        $search_string = "NEW FROM \"{$imap_from}\" SUBJECT \"{$imap_subject}\"";
-        $emails = imap_search(self::$imap_conn, $search_string);
-
-        //Should only be one message to process.
-        if (count($emails) > 1) {
-            return false;
-        }
-
-        //WIP
-    }
-}
 
 /** @static class to parse command line arguments */
 class cli_args {

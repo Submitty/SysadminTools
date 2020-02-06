@@ -160,20 +160,6 @@ class json_remote {
 
             //Write out CSV data by rows.
             foreach ($decoded_data as $row) {
-                //Validation.  Ignore row should any data point be empty.
-                switch(true) {
-                case empty($row['first_name']):
-                case empty($row['last_name']):
-                case empty($row['email']):
-                case empty($row['rcs']):
-                case empty($row['rin']):
-                case empty($row['course_prefix']):
-                case empty($row['course_number']):
-                case empty($row['course_section']):
-                    fprintf(STDERR, "Row Discarded:\n%s", var_export($row, true));
-                    continue 2;
-                }
-
                 $csv_row = array_fill(0, VALIDATE_NUM_FIELDS, null);
                 $csv_row[COLUMN_FIRSTNAME]     = $row['first_name'];
                 $csv_row[COLUMN_LASTNAME]      = $row['last_name'];
