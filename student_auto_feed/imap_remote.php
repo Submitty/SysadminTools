@@ -58,12 +58,13 @@ class imap_remote {
         $options    = "/" . implode("/", IMAP_OPTIONS);
         $auth = "{{$hostname}:{$port}{$options}}{$msg_folder}";
 
-        self::$imap_conn = imap_open($auth, $username, $password);
+        self::$imap_conn = imap_open($auth, $username, $password, null, 3, array('DISABLE_AUTHENTICATOR' => 'GSSAPI'));
 
         if (is_resource(self::$imap_conn) && get_resource_type(self::$imap_conn) === "imap") {
             return true;
         } else {
-            fprintf(STDERR, "Cannot connect to %s.\n%s\n", $hostname, imap_last_error());
+            $last_error = imap_last_error();
+            fwrite(STDERR, "Cannot connect to {$hostname}.\n{$last_error}\n");
             return false;
         }
     }
@@ -101,10 +102,12 @@ class imap_remote {
             self::$csv_locked = true;
             return true;
         } else if ($wouldblock === 1) {
-            fprintf(STDERR, "Another process has locked the CSV.\n%s\n", error_get_last());
+            $last_error = error_get_last();
+            fwrite(STDERR, "Another process has locked the CSV.\n{$last_error}\n");
             return false;
         } else {
-            fprintf(STDERR, "CSV not blocked, but still could not attain lock for writing.\n%s\n", error_get_last());
+            $last_error = error_get_last();
+            fwrite(STDERR, "CSV not blocked, but still could not attain lock for writing.\n{$last_error}\n");
             return false;
         }
     }
@@ -140,7 +143,8 @@ class imap_remote {
 
         //Should only be one message to process.
         if (!is_array($email_id) || count($email_id) > 1) {
-            fprintf(STDERR, "Cannot locate singular IMAP message.\nMessage IDs found: %s\n", var_export($email_id, true));
+            $msg_ids = var_export($email_id, true);
+            fwrite(STDERR, "Cannot locate singular IMAP message.\nMessage IDs found: {$msg_ids}\n");
             return false;
         }
 
@@ -158,30 +162,30 @@ class imap_remote {
                 //Scan through email structure and validate attachment.
                 $ifparams_list = array($part->ifdparameters, $part->ifparameters); //indicates if (d)paramaters exist.
                 $params_list   = array($part->dparameters, $part->parameters);     //(d)parameter data, parrallel array to $ifparams_list.
-                foreach($ifparams_list as $param_index=>$ifparams) {
+                foreach($ifparams_list as $ifparam_index=>$ifparams) {
                     if ((boolean)$ifparams) {
-                        foreach($params_list[$param_index] as $params) {
+                        foreach($params_list[$ifparam_index] as $params) {
                             if (strpos($params->attribute, "name") !== false && $params->value === IMAP_ATTACHMENT) {
                                 //Get attachment data.
                                 switch($part->encoding) {
                                 //7 bit is ASCII.  8 bit is Latin-1.  Both should be printable without decoding.
                                 case ENC7BIT:
                                 case ENC8BIT:
-                                    fwrite(self::$csv_fh, imap_fetchbody(self::$imap_conn, $email_id[0], $param_index+1));
+                                    fwrite(self::$csv_fh, imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1));
                                     $status = true;
                                     break;
                                 //Base64 needs decoding.
                                 case ENCBASE64:
-                                    fwrite(self::$csv_fh, imap_base64(imap_fetchbody(self::$imap_conn, $email_id[0], $param_index+1)));
+                                    fwrite(self::$csv_fh, imap_base64(imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1)));
                                     $status = true;
                                     break;
-                                //"Quoted Printable" needs decoding.
+                                //Quoted Printable needs decoding.
                                 case ENCQUOTEDPRINTABLE:
-                                    fwrite(self::$csv_fh, imap_qprint(imap_fetchbody(self::$imap_conn, $email_id[0], $param_index+1)));
+                                    fwrite(self::$csv_fh, imap_qprint(imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1)));
                                     $status = true;
                                     break;
                                 default:
-                                    fwrite(STDERR, "Unexpected character encoding: {$part->encoding}\n2 === BINARY, 5 === OTHER\n");
+                                    fwrite(STDERR, "Unexpected character encoding: {$part->encoding}\n(2 = BINARY, 5 = OTHER)\n");
                                 }
                             }
                         }
