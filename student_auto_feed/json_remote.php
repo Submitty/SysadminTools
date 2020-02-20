@@ -108,7 +108,7 @@ class json_remote {
      * @access private
      */
     private function open_csv() {
-        self::$csv_fh = fopen(JSON_LOCAL_CSV_FILE, "w");
+        self::$csv_fh = fopen(CSV_FILE, "w");
     }
 
     /**
