@@ -143,8 +143,8 @@ class imap_remote {
 
         //Should only be one message to process.
         if (!is_array($email_id) || count($email_id) > 1) {
-            $msg_ids = var_export($email_id, true);
-            fwrite(STDERR, "Cannot locate singular IMAP message.\nMessage IDs found: {$msg_ids}\n");
+            $msg_ids = print_r($email_id, true);
+            fwrite(STDERR, "Cannot locate singular IMAP message.\nMessage IDs found (\"false\" means none):\n{$msg_ids}\n");
             return false;
         }
 
@@ -167,25 +167,27 @@ class imap_remote {
                         foreach($params_list[$ifparam_index] as $params) {
                             if (strpos($params->attribute, "name") !== false && $params->value === IMAP_ATTACHMENT) {
                                 //Get attachment data.
+                                //Once CSV is written, we can end all nested loops (hence 'break 4;')
                                 switch($part->encoding) {
                                 //7 bit is ASCII.  8 bit is Latin-1.  Both should be printable without decoding.
                                 case ENC7BIT:
                                 case ENC8BIT:
                                     fwrite(self::$csv_fh, imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1));
                                     $status = true;
-                                    break;
+                                    break 4;
                                 //Base64 needs decoding.
                                 case ENCBASE64:
                                     fwrite(self::$csv_fh, imap_base64(imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1)));
                                     $status = true;
-                                    break;
+                                    break 4;
                                 //Quoted Printable needs decoding.
                                 case ENCQUOTEDPRINTABLE:
                                     fwrite(self::$csv_fh, imap_qprint(imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1)));
                                     $status = true;
-                                    break;
+                                    break 4;
                                 default:
                                     fwrite(STDERR, "Unexpected character encoding: {$part->encoding}\n(2 = BINARY, 5 = OTHER)\n");
+                                    break;
                                 }
                             }
                         }
