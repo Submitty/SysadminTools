@@ -143,8 +143,8 @@ class imap_remote {
 
         //Should only be one message to process.
         if (!is_array($email_id) || count($email_id) > 1) {
-            $msg_ids = print_r($email_id, true);
-            fwrite(STDERR, "Cannot locate singular IMAP message.\nMessage IDs found (\"false\" means none):\n{$msg_ids}\n");
+            $msg_ids = var_export($email_id, true);
+            fwrite(STDERR, "Expected one valid datasheet via IMAP mail.\nMessage IDs found (\"false\" means none):\n{$msg_ids}\n");
             return false;
         }
 
