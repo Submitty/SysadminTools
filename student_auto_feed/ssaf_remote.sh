@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+# Use this bash script to run either imap_remote.php or json_remote.php before
+# submitty_student_auto_feed.php.  This is intended to be used with cron.
+#
+# Author: Peter Bailie, Rensselaer Polytechnic Institute
+
 display_usage() {
     cat << EOM
 usage: ssaf_remote.sh (imap|json) (term) [DB_auth]
@@ -15,24 +20,20 @@ if [ $# -ne 2 ] && [ $# -ne 3 ]; then
     display_usage
 fi
 
-case $1 in
-imap)
-    ./imap_remote.php
-    ;;
-json)
-    ./json_remote.php
-    ;;
-*)
+CWD=$(dirname "$0")
+if [ "$1" = "imap" ] || [ "$1" = "json" ]; then
+    REMOTE="${CWD}/${1}_remote.php"
+else
     display_usage
-    ;;
-esac
+fi
 
-if [ $? -eq 0 ]; then
-    if [ $# -eq 2 ]; then
-        ./submitty_student_auto_feed -t $2
-    else
-        ./submitty_student_auto_feed -t $2 -a $3
+if $REMOTE; then
+    if [ "$3" != "" ]; then
+        DASH_A="-a$3"
     fi
+
+    DASH_T="-t$2"
+    "$CWD"/submitty_student_auto_feed.php "$DASH_T" "$DASH_A"
 else
     echo "${1}_remote.php exited $?.  Auto feed not run."
 fi
