@@ -37,6 +37,7 @@ class imap_remote {
     }
 
     public function __destruct() {
+        $this->close_csv();
         $this->imap_disconnect();
     }
 
@@ -63,8 +64,7 @@ class imap_remote {
         if (is_resource(self::$imap_conn) && get_resource_type(self::$imap_conn) === "imap") {
             return true;
         } else {
-            $last_error = imap_last_error();
-            fwrite(STDERR, "Cannot connect to {$hostname}.\n{$last_error}\n");
+            fprintf(STDERR, "Cannot connect to {$hostname}.\n%s\n", imap_last_error());
             return false;
         }
     }
@@ -93,7 +93,7 @@ class imap_remote {
         //Open CSV for writing.
         self::$csv_fh = fopen(CSV_FILE, "w");
         if (!is_resource(self::$csv_fh) || get_resource_type(self::$csv_fh) !== "stream") {
-            fprinf(STDERR, "Could not open CSV file for writing.\n%s\n", error_get_last());
+            fprintf(STDERR, "Could not open CSV file for writing.\n%s\n", error_get_last());
             return false;
         }
 
@@ -102,12 +102,10 @@ class imap_remote {
             self::$csv_locked = true;
             return true;
         } else if ($wouldblock === 1) {
-            $last_error = error_get_last();
-            fwrite(STDERR, "Another process has locked the CSV.\n{$last_error}\n");
+            fprintf(STDERR, "Another process has locked the CSV.\n%s\n", error_get_last());
             return false;
         } else {
-            $last_error = error_get_last();
-            fwrite(STDERR, "CSV not blocked, but still could not attain lock for writing.\n{$last_error}\n");
+            fprintf(STDERR, "CSV not blocked, but still could not attain lock for writing.\n%s\n", error_get_last());
             return false;
         }
     }
@@ -142,17 +140,16 @@ class imap_remote {
         $email_id = imap_search(self::$imap_conn, $search_string);
 
         //Should only be one message to process.
-        if (!is_array($email_id) || count($email_id) > 1) {
-            $msg_ids = var_export($email_id, true);
-            fwrite(STDERR, "Expected one valid datasheet via IMAP mail.\nMessage IDs found (\"false\" means none):\n{$msg_ids}\n");
+        if (!is_array($email_id) || count($email_id) != 1) {
+            fprintf(STDERR, "Expected one valid datasheet via IMAP mail.\nMessage IDs found (\"false\" means none):\n%s\n", var_export($email_id, true));
             return false;
         }
 
         //Open CSV for writing.
-        $this->open_csv();
+        if (!$this->open_csv()) {
+            return false;
+        }
 
-        //Assume something goes wrong, unless shown otherwise.
-        $status = false;
         //Locate file attachment via email structure parts.
         $structure = imap_fetchstructure(self::$imap_conn, $email_id[0]);
         foreach($structure->parts as $part_index=>$part) {
@@ -173,20 +170,23 @@ class imap_remote {
                                 case ENC7BIT:
                                 case ENC8BIT:
                                     fwrite(self::$csv_fh, imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1));
-                                    $status = true;
-                                    break 4;
+                                    //Set SEEN flag on email so it isn't re-read again in the future.
+                                    imap_setflag_full(self::$imap_conn, (string)$email_id[0], "\SEEN");
+                                    return true;
                                 //Base64 needs decoding.
                                 case ENCBASE64:
                                     fwrite(self::$csv_fh, imap_base64(imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1)));
-                                    $status = true;
-                                    break 4;
+                                    //Set SEEN flag on email so it isn't re-read again in the future.
+                                    imap_setflag_full(self::$imap_conn, (string)$email_id[0], "\SEEN");
+                                    return true;
                                 //Quoted Printable needs decoding.
                                 case ENCQUOTEDPRINTABLE:
                                     fwrite(self::$csv_fh, imap_qprint(imap_fetchbody(self::$imap_conn, $email_id[0], $part_index+1)));
-                                    $status = true;
-                                    break 4;
+                                    //Set SEEN flag on email so it isn't re-read again in the future.
+                                    imap_setflag_full(self::$imap_conn, (string)$email_id[0], "\SEEN");
+                                    return true;
                                 default:
-                                    fwrite(STDERR, "Unexpected character encoding: {$part->encoding}\n(2 = BINARY, 5 = OTHER)\n");
+                                    fprintf(STDERR, "Unexpected character encoding: %s\n(2 = BINARY, 5 = OTHER)\n", $part->encoding);
                                     break;
                                 }
                             }
@@ -196,10 +196,9 @@ class imap_remote {
             }
         }
 
-        //Set SEEN flag on email so it isn't re-read again in the future.
-        imap_setflag_full(self::$imap_conn, (string)$email_id[0], "\SEEN");
-        return $status;
+        // If we're down here, something has gone wrong.
+        fprintf(STDERR, "Unexpected error while trying to write CSV.\n%s\n", error_get_last());
+        return false;
     }
 } //END class imap
-
 ?>
