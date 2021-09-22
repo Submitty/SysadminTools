@@ -116,7 +116,7 @@ define('HEADER_ROW_EXISTS', true);
 //IMAP_OPTIONS: q.v. "Optional flags for names" at https://www.php.net/manual/en/function.imap-open.php
 //IMAP_FROM is for validation.  Make sure it matches the identity of who sends the data sheets
 //IMAP_SUBJECT is for validation.  Make sure it matches the subject line of the messages containing the data sheet.
-//IMAP_ATTACHMENR is for validation.  Make sure it matches the file name of the attached data sheets.
+//IMAP_ATTACHMENT is for validation.  Make sure it matches the file name of the attached data sheets.
 define('IMAP_HOSTNAME',   'imap.cs.myuniversity.edu');
 define('IMAP_PORT',       '993');
 define('IMAP_USERNAME',   'imap_user');     //DO NOT USE IN PRODUCTION
@@ -128,8 +128,14 @@ define('IMAP_SUBJECT',    'Your daily CSV');
 define('IMAP_ATTACHMENT', 'submitty_enrollments.csv');
 
 //Remote JSON
-//To Do: Instructions
-define('JSON_REMOTE_HOSTNAME',    'localhost');
+//This is used by json_remote.php to read JSON data from another server via
+//an SSH session.  The JSON data is then written to a CSV file usable by the
+//auto feed.
+//JSON_REMOTE_FINGERPRINT must match the SSH fingerprint of the server being
+//accessed.  This is to help ensure you are not connecting to an imposter server,
+//such as with a man-in-the-middle attack.
+//JSON_REMOTE_PATH is the remote path to the JSON data file(s).
+define('JSON_REMOTE_HOSTNAME',    'server.cs.myuniversity.edu');
 define('JSON_REMOTE_PORT',        22);
 define('JSON_REMOTE_FINGERPRINT', '00112233445566778899AABBCCDDEEFF00112233');
 define('JSON_REMOTE_USERNAME',    'json_user');     //DO NOT USE IN PRODUCTION
