@@ -71,7 +71,7 @@ PHP imap extension.
 
 This helper script is meant to retrieve student enrollment, as JSON data, from
 another server via SSH session and write that data as a CSV file usable by
-`submitty\_student\_auto\_feed.php`.  This script is highly proprietary and is
+`submitty_student_auto_feed.php`.  This script is highly proprietary and is
 very likely to require code changes to be useful at another university.
 
 Configuration is read from `config.php`.  No command line options.  Requires the
