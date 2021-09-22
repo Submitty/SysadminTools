@@ -55,7 +55,7 @@ class json_remote {
 
         //Validate connection.
         if (!$this->validate_remote_connect()) {
-            fprintf(STDERR, "Cannot connect to remote server %s\n", self::hostname);
+            fprintf(STDERR, "Cannot connect to remote server %s\n", JSON_REMOTE_HOSTNAME);
             return false;
         }
 

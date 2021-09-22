@@ -63,6 +63,11 @@ class submitty_student_auto_feed {
 
         //Get semester from CLI arguments.
         $opts = cli_args::parse_args();
+        if (array_key_exists('l', $opts)) {
+            $this->log_it("Logging test requested.  There is no actual error to report.");
+            exit;
+        }
+
         self::$semester = $opts['t'];
 
         //Connect to "master" submitty DB.
@@ -136,7 +141,12 @@ class submitty_student_auto_feed {
         //Output logs, if any.
         if (!empty(self::$log_msg_queue)) {
             if (!is_null(ERROR_EMAIL)) {
-                error_log(self::$log_msg_queue, 1, ERROR_EMAIL);  //to email
+                $is_sent = error_log(self::$log_msg_queue, 1, ERROR_EMAIL);  //to email
+                fprintf(STDERR, "%s", self::$log_msg_queue);
+                if (!$is_sent) {
+                    $this->log_it("Error log could not be sent by email.");
+                    fprintf(STDERR, "Error log could not be sent by email.%s", PHP_EOL);
+                }
             }
 
             error_log(self::$log_msg_queue, 3, ERROR_LOG_FILE);  //to file
@@ -792,6 +802,7 @@ SQL;
     }
 } //END class submitty_student_auto_feed
 
+
 /** @static class to parse command line arguments */
 class cli_args {
 
@@ -807,7 +818,7 @@ Arguments:
 -h, --help    Show this help message.
 -a auth str   Specify 'user:password@server', overriding config.php.  Optional.
 -t term code  Term code associated with current student enrollment.  Required.
-
+-l            Send a test message to error log(s) and quit.
 
 HELP;
 
@@ -821,7 +832,7 @@ HELP;
      */
     public static function parse_args() {
 
-        self::$args = getopt('ha:t:', array('help'));
+        self::$args = getopt('ha:t:l', array('help'));
 
         switch(true) {
         case array_key_exists('h', self::$args):
@@ -831,6 +842,7 @@ HELP;
             print self::$help_args_list . PHP_EOL;
             exit(0);
         case array_key_exists('t', self::$args):
+        case array_key_exists('l', self::$args):
             return self::$args;
         default:
             print self::$help_usage . PHP_EOL;

@@ -164,7 +164,6 @@ class imap_remote {
                         foreach($params_list[$ifparam_index] as $params) {
                             if (strpos($params->attribute, "name") !== false && $params->value === IMAP_ATTACHMENT) {
                                 //Get attachment data.
-                                //Once CSV is written, we can end all nested loops (hence 'break 4;')
                                 switch($part->encoding) {
                                 //7 bit is ASCII.  8 bit is Latin-1.  Both should be printable without decoding.
                                 case ENC7BIT:
