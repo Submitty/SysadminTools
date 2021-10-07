@@ -2,23 +2,22 @@
 <?php
 include "config.php";
 
-$proc = new deduplicate_by_sections($argv);
+$proc = new sanitize_enrollments($argv);
 $proc->go();
 exit;
 
-class deduplicate_by_sections {
-
-    private $db;
-    private $db_courses_list;
-    private $csv_r_file;
-    private $csv_r_fh;
-    private $csv_r_lock;
-    private $csv_w_file;
-    private $csv_w_fh;
-    private $csv_w_lock;
-    private $ldap_members;
-    private $ldap_group;
-    private $term;
+class sanitize_enrollments {
+    private $db;               // DB resource
+    private $db_courses_list;  // Courses registered in Submitty
+    private $csv_r_file;       // Bad CSV Filename
+    private $csv_r_fh;         // Read file handle for bad CSV
+    private $csv_r_lock;       // Is read file locked?
+    private $csv_w_file;       // Sanitized CSV filename
+    private $csv_w_fh;         // Write file handle for sanitized CSV
+    private $csv_w_lock;       // Is write file locked?
+    private $ldap_members;     // Class list from LDAP
+    private $ldap_group;       // Course code in LDAP
+    private $term;             // Term/Semester being processed
 
     public function __construct($argv) {
         // Get term code from command line parameter
@@ -50,20 +49,20 @@ class deduplicate_by_sections {
         case $this->open_db():
             fprintf(STDERR, "Error connecting to Submitty DB.\n");
             exit(1);
-        case $this->get_courses_list():
+        case $this->db_get_courses_list():
             fprintf(STDERR, "Error retrieving course list from DB.\n");
-            exit(1);
-        case $this->backup_csv():
-            fprintf(STDERR, "Error backing up original CSV.\n");
             exit(1);
         case $this->open_files():
             fprintf(STDERR, "Error opening work files.\n");
+            exit(1);
+        case $this->backup_csv():
+            fprintf(STDERR, "Error backing up original CSV.\n");
             exit(1);
         case $this->copy_header():
             fprintf(STDERR, "Error copying CSV header.\n");
             exit(1);
         case $this->sanitize_csv():
-            fprintf(STDERR, "Error during depuplication.\n");
+            fprintf(STDERR, "Error while sanitizing CSV.\n");
             exit(1);
         case $this->swap_csv():
             fprintf(STDERR, "Error swapping over sanitized datasheet for reading.\n");
@@ -101,7 +100,7 @@ class deduplicate_by_sections {
      * @access private
      * @return bool indicates success (true) or failure (false).
      */
-    private function get_courses_list() : bool {
+    private function db_get_courses_list() : bool {
         if (!is_resource($this->db) || get_resource_type($this->db) !== "pgsql link")
             return false;
 
@@ -110,26 +109,37 @@ class deduplicate_by_sections {
             return false;
 
         $this->db_courses_list = pg_fetch_all_columns($res, 0);
+        array_walk($this->db_courses_list, function(&$val, $key) { $val = strtolower($val); });
         return true;
     }
 
     /**
      * Get student's registration section from DB
      *
-     * @acces private
-     * @return mixed registration section on success, FALSE on failure.
+     * @access private
+     * @param string $course Student's enrolled course.
+     * @param string $user_id Student's RCS ID.
+     * @return mixed registration section as string, NULL when datapoint not found, or FALSE on error.
      */
-    private function student_section_lookup($course, $user_id) {
-        if (!is_resource($this->db) && get_resource_type($this->db) !== "pgsql link")
+    private function db_student_section_lookup(string $course, string $user_id) {
+        if (!is_resource($this->db) || get_resource_type($this->db) !== "pgsql link")
             return false;
 
-        $course = format_group_code($course, "db");
-        $params = array($this->term, $course, $user_id);
-        $res = pg_query_params("SELECT registration_section FROM courses_users WHERE user_id=$1", array($user_id));
+        $course = $this->format_group_code($course, "db");
+
+        $sql = <<<SQL
+        SELECT registration_section
+        FROM courses_users
+        WHERE semester=$1 AND course=$2 AND user_id=$3
+        SQL;
+        $params = array($this->term, strtolower($course), strtolower($user_id));
+
+        $res = pg_query_params($sql, $params);
         if ($res === false)
             return false;
+        $section = pg_fetch_result($res, 'registration_section');
 
-        return pg_fetch_result($res, 0, 0);
+        return $section !== false ? $section : null;
     }
 
     /**
@@ -140,18 +150,6 @@ class deduplicate_by_sections {
     private function close_db() {
         if (is_resource($this->db) && get_resource_type($this->db) === "pgsql link")
             pg_close($this->db);
-    }
-
-    /**
-     * Copy CSV read file to backup.
-     *
-     * @access private
-     * @return bool indicates success (true) or failure (false).
-     */
-    private function backup_csv() : bool {
-        $this->close_files();
-        $backup = "{$this->csv_r_file}.bak";
-        return copy($this->csv_r_file, $backup);
     }
 
     /**
@@ -168,11 +166,11 @@ class deduplicate_by_sections {
         $md5 = md5(time());
         $this->csv_w_file = preg_replace("/\/[^\/]+$/", "/{$md5}.tmp", $this->csv_r_file);
 
-        $this->csv_r_fh = fopen($csv_r_file, "r");
+        $this->csv_r_fh = fopen($this->csv_r_file, "r");
         if (flock($this->csv_r_fh, LOCK_SH))
             $this->csv_r_lock = true;
 
-        $this->csv_w_fh = fopen($csv_w_file, "w");
+        $this->csv_w_fh = fopen($this->csv_w_file, "w");
         if (flock($this->csv_w_fh, LOCK_EX))
             $this->csv_w_lock = true;
 
@@ -208,6 +206,17 @@ class deduplicate_by_sections {
     }
 
     /**
+     * Copy CSV read file to backup.
+     *
+     * @access private
+     * @return bool indicates success (true) or failure (false).
+     */
+    private function backup_csv() : bool {
+        $backup = "{$this->csv_r_file}.bak";
+        return copy($this->csv_r_file, $backup);
+    }
+
+    /**
      * Copy CSV header to sanitized CSV file, if header exists.
      *
      * @access private
@@ -219,50 +228,87 @@ class deduplicate_by_sections {
         if (!$header_row_exists)
             return true; // nothing to do.  no error.
 
-        $row = fgetcsv($this->cvs_r_fh, 0, $delim_char);
+        $row = fgetcsv($this->csv_r_fh, 0, $delim_char);
         if ($row === false)
             return false;
 
-        $res = fputcsv($this->cvs_w_fh, $row, $delim_char);
+        $res = fputcsv($this->csv_w_fh, $row, $delim_char);
         if ($res === false)
             return false;
 
         return true;
     }
 
+    /**
+     * Main process to sanitize CSV datasheet
+     *
+     * Data sheets are not properly showing dropped student enrollments.
+     *
+     * @access private
+     * @return bool always true
+     */
     private function sanitize_csv() : bool {
         $delim = CSV_DELIM_CHAR;
         $prefix = COLUMN_COURSE_PREFIX;
         $number = COLUMN_COURSE_NUMBER;
         $user_id = COLUMN_USER_ID;
+        $section = COLUMN_SECTION;
 
         // Read in all lines.
         $rows[] = fgetcsv($this->csv_r_fh, 0, $delim);
-        while(!feof($this->cvs_r_fh)) {
+        while(!feof($this->csv_r_fh)) {
             $rows[] = fgetcsv($this->csv_r_fh, 0, $delim);
         }
+        // Last entry in $rows will be boolean FALSE instead of a csv row.
+        // But we'll sanity check it before unsetting it.
+        $k = array_key_last($rows);
+        if (!is_array($rows[$k]))
+            unset($rows[$k]);
 
-        // sort by course
-        usort($rows, function($a, $b) use ($prefix, $number) {
-            $course_a = "{$a[$prefix]}{$a[$number]}";
-            $course_b = "{$b[$prefix]}{$b[$number]}";
-            return $course_a <=> $course_b;
+        // sort by course (prefix + number) and then by user_id.
+        usort($rows, function($a, $b) use ($prefix, $number, $user_id) {
+            return array($a[$prefix], $a[$number], $a[$user_id]) <=> array($b[$prefix], $b[$number], $b[$user_id]);
         });
 
+        // deduplicate entire sheet by course (prefix + number) and user_id
+        $count = count($rows);
+        for ($i = 1; $i < $count; $i++) {
+            if ($rows[$i-1][$prefix]  === $rows[$i][$prefix] &&
+                $rows[$i-1][$number]  === $rows[$i][$number] &&
+                $rows[$i-1][$user_id] === $rows[$i][$user_id])
+                unset($rows[$i-1]);
+        }
+
+        // Reindex $rows
+        $rows = array_values($rows);
+
+        // Sanitize and write new CSV.
         foreach ($rows as $row) {
-            $course = "{$row[$prefix]}{$row[$number]}";
+            $course = strtolower("{$row[$prefix]}{$row[$number]}");
+            $rcs = strtolower($row[$user_id]);
 
             // Is course registered?  No -- discard
-            if (array_search($course, $this->db_course_list) === false)
+            if (array_search($course, $this->db_courses_list) === false) {
                 continue;
+            }
 
             // Is user still enrolled?  No -- discard
             $this->ldap_lookup($course);
-            if (array_search($row[$user_id], $this->ldap_members) === false)
+            if (array_search($rcs, $this->ldap_members) === false) {
                 continue;
+            }
 
-            // Read user's section.  No section on record?  Add to section 1 and log.
+            // Read user's section.  No section on record?  Place in section 1 and indicate verbosely.
+            $student_section = $this->db_student_section_lookup($course, $rcs);
+            if (is_null($student_section)) {
+                $row[$section] = "1";
+                fprintf(STDERR, "%s in %s did not have a registration section.  Placed in section 1.\n", $rcs, $course);
+            }
+
+            // Row is OK.  Add it to sanitized CSV;
+            fputcsv($this->csv_w_fh, $row, $delim);
         }
+        return true;
     }
 
     /**
@@ -283,6 +329,16 @@ class deduplicate_by_sections {
         return true;
     }
 
+    /**
+     * Format group code (typically the course code) for comparison with either DB or LDAP.
+     *
+     * DB is lowercase prefix+number, no delimiter. e.g. csci1000
+     * LDAP is uppercase prefix+number with underscore delimiter.  e.g. CSCI_1000
+     *
+     * @access private
+     * @param string Group code (as course course code)
+     * @return mixed Formatted code or FALSE on error.
+     */
     private function format_group_code($group, $style="ldap") {
         switch ($style) {
         case "ldap":
@@ -314,11 +370,11 @@ class deduplicate_by_sections {
      * @return bool
      */
     private function ldap_lookup($group) : bool {
-        // Do not lookup again, when the same group data has already been read.
         $group = $this->format_group_code($group, "ldap");
         if ($group === false)
             return false;
 
+        // Do not lookup again, when the same group data has already been read.
         if ($group === $this->ldap_group && !empty($this->ldap_members)) {
             return true;
         }
@@ -351,6 +407,7 @@ class deduplicate_by_sections {
         array_walk($info, $aw_callback);
         sort($info);
         $this->ldap_members = $info;
+        array_walk($this->ldap_members, function(&$val, $key) { $val = strtolower($val); });
         ldap_unbind($ldap);
         return true;
     }
