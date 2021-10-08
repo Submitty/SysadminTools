@@ -1,11 +1,20 @@
-
+#!/usr/bin/env php
 <?php
+// Verified for PHP 7.2
 include "config.php";
 
 $proc = new sanitize_enrollments($argv);
 $proc->go();
 exit;
 
+/**
+ * Sanitize data sheets used by the Submitty Autofeed
+ *
+ * Data sheets were not properly showing students who dropped course enrollments.
+ * This script attempts to correct the data using other available data sources.
+ *
+ * @author Peter Bailie, Rensselaer Polytechnic Institute
+ */
 class sanitize_enrollments {
     private $db;               // DB resource
     private $db_courses_list;  // Courses registered in Submitty
@@ -128,10 +137,10 @@ class sanitize_enrollments {
         $course = $this->format_group_code($course, "db");
 
         $sql = <<<SQL
-        SELECT registration_section
-        FROM courses_users
-        WHERE semester=$1 AND course=$2 AND user_id=$3
-        SQL;
+SELECT registration_section
+FROM courses_users
+WHERE semester=$1 AND course=$2 AND user_id=$3
+SQL;
         $params = array($this->term, strtolower($course), strtolower($user_id));
 
         $res = pg_query_params($sql, $params);
@@ -255,15 +264,16 @@ class sanitize_enrollments {
         $section = COLUMN_SECTION;
 
         // Read in all lines.
-        $rows[] = fgetcsv($this->csv_r_fh, 0, $delim);
-        while(!feof($this->csv_r_fh)) {
-            $rows[] = fgetcsv($this->csv_r_fh, 0, $delim);
+        $rows = array(0 => fgetcsv($this->csv_r_fh, 0, $delim));
+        for ($i = 1; !feof($this->csv_r_fh); $i++) {
+            $rows[$i] = fgetcsv($this->csv_r_fh, 0, $delim);
         }
+
         // Last entry in $rows will be boolean FALSE instead of a csv row.
         // But we'll sanity check it before unsetting it.
-        $k = array_key_last($rows);
-        if (!is_array($rows[$k]))
-            unset($rows[$k]);
+        $i = count($rows) - 1;
+        if (!is_array($rows[$i]))
+            unset($rows[$i]);
 
         // sort by course (prefix + number) and then by user_id.
         usort($rows, function($a, $b) use ($prefix, $number, $user_id) {
@@ -273,10 +283,11 @@ class sanitize_enrollments {
         // deduplicate entire sheet by course (prefix + number) and user_id
         $count = count($rows);
         for ($i = 1; $i < $count; $i++) {
-            if ($rows[$i-1][$prefix]  === $rows[$i][$prefix] &&
-                $rows[$i-1][$number]  === $rows[$i][$number] &&
-                $rows[$i-1][$user_id] === $rows[$i][$user_id])
-                unset($rows[$i-1]);
+            $h = $i - 1;
+            if ($rows[$h][$prefix]  === $rows[$i][$prefix] &&
+                $rows[$h][$number]  === $rows[$i][$number] &&
+                $rows[$h][$user_id] === $rows[$i][$user_id])
+                unset($rows[$h]);
         }
 
         // Reindex $rows
