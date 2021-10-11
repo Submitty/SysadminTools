@@ -282,7 +282,7 @@ class submitty_student_auto_feed {
                 } else {
                     //Course mapping is needed, but section is not correctly entered in DB.
                     //Invalidate data file so that upsert is not performed as a safety precaution for system data integrity.
-                    $this->log_it("Row {$index}: {$course} has been mapped.  Section {$section} is in feed, but not mapped.");
+                    $this->log_it("Row {$row_number}: {$course} has been mapped.  Section {$section} is in feed, but not mapped.");
                     $validation_flag = false;
                 }
             }
