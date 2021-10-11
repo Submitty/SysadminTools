@@ -104,7 +104,7 @@ class sanitize_enrollments {
     }
 
     /**
-     * Set registered course list for this term to $this->db_courses_list
+     * Set registered courses list for this term to $this->db_courses_list
      *
      * @access private
      * @return bool indicates success (true) or failure (false).
@@ -113,11 +113,18 @@ class sanitize_enrollments {
         if (!is_resource($this->db) || get_resource_type($this->db) !== "pgsql link")
             return false;
 
+        // Undergraduate courses from DB.
         $res = pg_query_params($this->db, "SELECT course FROM courses WHERE semester=$1 AND status=1", array($this->term));
         if ($res === false)
             return false;
-
         $this->db_courses_list = pg_fetch_all_columns($res, 0);
+
+        // Append graduate courses mapped to undergraduate courses from DB.
+        $res = pg_query_params($this->db, "SELECT course FROM mapped_courses WHERE semester=$1", array($this->term));
+        if ($res === false)
+            return false;
+        $this->db_courses_list = array_merge($this->db_courses_list, pg_fetch_all_columns($res, 0));
+
         array_walk($this->db_courses_list, function(&$val, $key) { $val = strtolower($val); });
         return true;
     }
