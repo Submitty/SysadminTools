@@ -1,21 +1,26 @@
 # Submitty Student Auto Feed Script
-Readme June 26, 2018
+Readme last updated Sept 22, 2021
 
-This is a code example for any University to use as a basis to have student
-enrollment data added or updated on an automated schedule.
+This is a code example for any University to use as a basis to have Submitty course's enrollment data added or updated on an automated schedule with a student enrollment CSV datasheet.
 
-Instructions can be found at [http://submitty.org/sysadmin/student\_auto\_feed](http://submitty.org/sysadmin/student_auto_feed)
+__WARNING: Student enrollment CSV files may contain private student
+information that is protected by [FERPA (20 U.S.C. § 1232g)](https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html).
+Please contact your school's IT dept. for advice on your school's data security
+policies and practices.__
 
-### config.php
-A series of define statements that is used to configure the auto feed script.
+Detailed instructions can be found at [http://submitty.org/sysadmin/student\_auto\_feed](http://submitty.org/sysadmin/student_auto_feed)
+
+Please use PHP 7.0 or higher.
+
+## config.php
+A series of `define` statements that is used to configure the auto feed script.
 Code comments will help explain usage.
 
-### submitty\_student\_auto\_feed.php
-A command line executable script that is a code class to read a student
-enrollment data form in CSV format and "upsert" (update/insert) student
-enrollment for all registered courses in Submitty.
+## submitty\_student\_auto\_feed.php
+A command line executable script to read a student enrollment data CSV file and
+"upsert" (update/insert) student enrollment for all registered courses in Submitty.
 
-This code assumes that all student enrollments for all courses are in a single
+This script assumes that all student enrollments for all courses are in a single
 CSV file.  Extra courses can exist in the data (such as a department wide CSV),
 and any enrollments for courses not registered in Submitty are ignored.
 
@@ -24,47 +29,75 @@ regularly scheduled data dump, uploaded somewhere as a CSV file.  A sysadmin
 should setup a cron job to regularly trigger this script to run when the CSV
 file is available.
 
+Alternatively, the helper scripts `imap_remote.php` and `json_remote.php` can be
+used to retrieve student enrollment data from an imap email account (as a file
+attachment) or from another server as JSON data read via an SSH session.  More
+on this, below.
+
 The auto feed script does not need to be run specifically on the Submitty
 server, but it will need access to the Submitty "master" database and the
 enrollment CSV data file.
 
----
+Requires PHP's pgsql and iconv extensions.
 
-The semester must be either manually specified as command line argument
-`-t`, or guessed by calendar month and year with command line argument `-g`.
+### Command Line Arguments
+
+`-t` Specify the term code for the currently active term.  Required.
 
 For example:
 
-`php ./submitty_student_auto_feed.php -t s18`
+`$ php ./submitty_student_auto_feed.php -t s18`
 
-Will run the accounts script for the "s18" (Spring 2018) term.
+Will run the auto feed script for the "s18" (Spring 2018) term.
 
-`php ./submitty_student_auto_feed.php -g`
+`-a` Specify database authentication on the command line as `user:password@server`
+This overrides database authentication set in config.php.  Optional.
 
-Will guess the term code based on the calendar month and year.  The term code
-will follow the pattern of TYY, where
+`-l` Test log reporting.  This can be used to test that logs are being
+sent/delivered by email.  This does not process a data CSV.  Optional.
 
-- T is the term
-  - **s** is for Spring (Jan - May)
-  - **u** is for Summer (Jun - Jul)
-  - **f** is for Fall (Aug-Dec)
-- YY is the two digit year
-- e.g. April 15, 2018 will correspond to "s18" (Spring 2018).
+## imap\_remote.php
 
-`-g` and `-t` are mutually exclusive.
+This is a helper script that will retrieve a CSV data sheet from an imap email
+account.  The data retrieved is written to the same path and file used by
+`submitty_student_auto_feed.php`.  Therefore, run `imap_remote.php` first
+and the data should be available to `submitty_student_auto_feed.php` for
+processing.
 
----
+Configuration is read from `config.php`.  No command line options.  Requires the
+PHP imap extension.
 
-WARNING:  Student enrollment CSV files may contain private student
-information that is protected by [FERPA (20 U.S.C. § 1232g)](https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html).
-Please contact your school's IT dept. for advice on your school's data security
-policies and practices.
+## json\_remote.php
 
----
+This helper script is meant to retrieve student enrollment, as JSON data, from
+another server via SSH session and write that data as a CSV file usable by
+`submitty_student_auto_feed.php`.  This script is highly proprietary and is
+very likely to require code changes to be useful at another university.
 
-Requires at least PHP 5.6 with pgsql, iconv, and ssh2 extensions.
+Configuration is read from `config.php`.  No command line options.  Requires the
+PHP ssh2 extension.
 
-NOTE: Some modification of code may be necessary to work with your school's
-information systems.
+## ssaf\_remote.sh
 
-q.v. PAM Authentication Accounts script
+Bash shell script that is used to run either `imap_remote.php` or `json_remote.php`
+followed by `submitty_student_auto_feed.php`.  This allows one entry in cron
+to first retrieve data from either imap email or a json file from a remote server,
+and then process the data with the auto feed.
+
+### Command Line Arguments
+
+Command line arguments are not specified by switches.  Instead, the first
+argument is required and must be either `imap` or `json` to specify which helper
+script is used to retrieve student enrollment data.  The second argument is
+required and dictates the current academic term code.  The third argument is
+optional, and if present, is to specify database authentication on the command
+line.  These options are then passed to the auto feed when the auto feed is
+executed.
+
+For Example:
+
+`$ ./ssaf.sh imap s18 dbuser:dbpassword@dbserver.edu`
+
+This will first run `imap_remote.php` to retrieve student enrollment data, then
+run `submitty_student_auto_feed.php` with command line arguments `-t s18`
+and `-a dbuser:dbpassword@dbserver.edu`.

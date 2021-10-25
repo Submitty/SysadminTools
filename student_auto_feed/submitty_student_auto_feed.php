@@ -20,9 +20,9 @@
  *
  * Will run the auto feed for the Spring 2018 semester.
  *
- * Requires minimum PHP version 7.0 with pgsql, and iconv extensions.
+ * Requires minimum PHP version 7.0 with pgsql and iconv extensions.
  *
- * @author Peter Bailie, Systems Programmer (RPI research computing)
+ * @author Peter Bailie, Rensselaer Polytechnic Institute
  */
 
 require "config.php";
@@ -30,28 +30,28 @@ new submitty_student_auto_feed();
 
 /** primary process class */
 class submitty_student_auto_feed {
-    /** @staticvar string semester code */
+    /** @static @property string $semester semester code */
     private static $semester;
 
-    /** @staticvar array list of courses registered in Submitty */
+    /** @static @property array $course_list list of courses registered in Submitty */
     private static $course_list;
 
-    /** @staticvar array list that describes courses mapped from one to another */
+    /** @static @property array $course_mappings list that describes courses mapped from one to another */
     private static $course_mappings;
 
-    /** @staticvar resource "master" Submitty database connection */
+    /** @static @property resource $db "master" Submitty database connection */
     private static $db;
 
-    /** @staticvar resource file handle to read CSV */
+    /** @static @property resource $fh file handle to read CSV */
     private static $fh = false;
 
-    /** @staticvar boolean set to true when CSV file attains a lock */
+    /** @static @property boolean $fh_locked set to true when CSV file attains a lock */
     private static $fh_locked = false;
 
-    /** @staticvar array all CSV data to be upserted */
+    /** @static @property array $data all CSV data to be upserted */
     private static $data = array('users' => array(), 'courses_users' => array());
 
-    /** @staticvar string ongoing string of messages to write to logfile */
+    /** @static @property string $log_msg_queue ongoing string of messages to write to logfile */
     private static $log_msg_queue = "";
 
     public function __construct() {
@@ -62,12 +62,24 @@ class submitty_student_auto_feed {
         }
 
         //Get semester from CLI arguments.
-        self::$semester = cli_args::parse_args();
+        $opts = cli_args::parse_args();
+        if (array_key_exists('l', $opts)) {
+            $this->log_it("Logging test requested.  There is no actual error to report.");
+            exit;
+        }
+
+        self::$semester = $opts['t'];
 
         //Connect to "master" submitty DB.
-        $db_host     = DB_HOST;
-        $db_user     = DB_LOGIN;
-        $db_password = DB_PASSWORD;
+        if (array_key_exists('a', $opts)) {
+            $db_user     = strtok($opts['a'], ":");
+            $db_password = strtok("@");
+            $db_host     = strtok("");
+        } else {
+            $db_user     = DB_LOGIN;
+            $db_password = DB_PASSWORD;
+            $db_host     = DB_HOST;
+        }
         self::$db = pg_connect("host={$db_host} dbname=submitty user={$db_user} password={$db_password} sslmode=require");
 
         //Make sure there's a DB connection to Submitty.
@@ -129,7 +141,12 @@ class submitty_student_auto_feed {
         //Output logs, if any.
         if (!empty(self::$log_msg_queue)) {
             if (!is_null(ERROR_EMAIL)) {
-                error_log(self::$log_msg_queue, 1, ERROR_EMAIL);  //to email
+                $is_sent = error_log(self::$log_msg_queue, 1, ERROR_EMAIL);  //to email
+                fprintf(STDERR, "%s", self::$log_msg_queue);
+                if (!$is_sent) {
+                    $this->log_it("Error log could not be sent by email.");
+                    fprintf(STDERR, "Error log could not be sent by email.%s", PHP_EOL);
+                }
             }
 
             error_log(self::$log_msg_queue, 3, ERROR_LOG_FILE);  //to file
@@ -140,7 +157,6 @@ class submitty_student_auto_feed {
      * Run some error checks and copy file data to class property.
      *
      * @access private
-     * @param  array    $csv_data  rows of data read from enrollment CSV.
      * @return boolean  indicates success that CSV data passes validation tests
      */
     private function validate_csv() {
@@ -148,6 +164,14 @@ class submitty_student_auto_feed {
         if (self::$fh === false) {
             $this->log_it("CSV file handle invalid when starting CSV data validation.");
             return false;
+        }
+
+        //Consume and discard header row, if it exists, and init $row_number.
+        if (HEADER_ROW_EXISTS) {
+            fgets(self::$fh);
+            $row_number = 1;
+        } else {
+            $row_number = 0;
         }
 
         //Prepare validation
@@ -158,6 +182,9 @@ class submitty_student_auto_feed {
         $rpi_found_non_empty_row = false;  //RPI edge case flag where top row(s) of CSV might have empty data.
 
         while (($row = fgetcsv(self::$fh, 0, CSV_DELIM_CHAR)) !== false) {
+            //Current row number (needed for error logging).
+            $row_number++;
+
             //Trim whitespace from all fields in $row
             array_walk($row, 'trim');
 
@@ -166,17 +193,17 @@ class submitty_student_auto_feed {
             //Invalidation will disqualify the data file to protect DB data integrity.
             $num_fields = count($row);
             if ($num_fields !== $validate_num_fields) {
-                $this->log_it("Row {$index} has {$num_fields} columns.  {$validate_num_fields} expected.  CSV disqualified.");
+                $this->log_it("Row {$row_number} has {$num_fields} columns.  {$validate_num_fields} expected.  CSV disqualified.");
                 $validation_flag = false;
                 continue;
             } else if (empty(array_filter($row, function($field) { return !empty($field); }))) {
                 //RPI edge case to skip a correctly sized row of all empty fields — at the top of a data file, before proper data is read — without invalidating the whole data file.
                 if (!$rpi_found_non_empty_row) {
-                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — at top of CSV.  Ignoring row.");
+                    $this->log_it("Row {$row_number} is correct size ({$validate_num_fields}), but all columns are empty — at top of CSV.  Ignoring row.");
                     continue;
                 } else {
                     //Correctly sized empty row below data row(s) — invalidate data file.
-                    $this->log_it("Row {$index} is correct size ({$validate_num_fields}), but all columns are empty — below a non-empty data row.  CSV disqualified.");
+                    $this->log_it("Row {$row_number} is correct size ({$validate_num_fields}), but all columns are empty — below a non-empty data row.  CSV disqualified.");
                     $validation_flag = false;
                     continue;
                 }
@@ -202,32 +229,32 @@ class submitty_student_auto_feed {
             switch(false) {
             //Check term code (skips when set to null).
             case ((is_null(EXPECTED_TERM_CODE)) ? true : ($row[COLUMN_TERM_CODE] === EXPECTED_TERM_CODE)):
-                $this->log_it("Row {$index} failed validation for mismatched term code.");
+                $this->log_it("Row {$row_number} failed validation for mismatched term code.");
                 $validation_flag = false;
                 continue 2;
             //User ID must contain only lowercase alpha, numbers, underscore, and hyphen
             case boolval((preg_match("~^[a-z0-9_\-]+$~", $row[COLUMN_USER_ID]))):
-                $this->log_it("Row {$index} failed user ID validation ({$row[COLUMN_USER_ID]}).");
+                $this->log_it("Row {$row_number} failed user ID validation ({$row[COLUMN_USER_ID]}).");
                 $validation_flag = false;
                 continue 2;
             //First name must be alpha characters, white-space, or certain punctuation.
             case boolval((preg_match("~^[a-zA-Z'`\-\. ]+$~", $row[COLUMN_FIRSTNAME]))):
-                $this->log_it("Row {$index} failed validation for student first name ({$row[COLUMN_FNAME]}).");
+                $this->log_it("Row {$row_number} failed validation for student first name ({$row[COLUMN_FIRSTNAME]}).");
                 $validation_flag = false;
                 continue 2;
             //Last name must be alpha characters, white-space, or certain punctuation.
             case boolval((preg_match("~^[a-zA-Z'`\-\. ]+$~", $row[COLUMN_LASTNAME]))):
-                $this->log_it("Row {$index} failed validation for student last name ({$row[COLUMN_LNAME]}).");
+                $this->log_it("Row {$row_number} failed validation for student last name ({$row[COLUMN_LASTNAME]}).");
                 $validation_flag = false;
                 continue 2;
             //Student registration section must be alphanumeric, '_', or '-'.
             case boolval((preg_match("~^[a-zA-Z0-9_\-]+$~", $row[COLUMN_SECTION]))):
-                $this->log_it("Row {$index} failed validation for student section ({$section}).");
+                $this->log_it("Row {$row_number} failed validation for student section ({$section}).");
                 $validation_flag = false;
                 continue 2;
             //Check email address for appropriate format. e.g. "student@university.edu", "student@cs.university.edu", etc.
             case boolval((preg_match("~^[^(),:;<>@\\\"\[\]]+@(?!\-)[a-zA-Z0-9\-]+(?<!\-)(\.[a-zA-Z0-9]+)+$~", $row[COLUMN_EMAIL]))):
-                $this->log_it("Row {$index} failed validation for student email ({$row[COLUMN_EMAIL]}).");
+                $this->log_it("Row {$row_number} failed validation for student email ({$row[COLUMN_EMAIL]}).");
                 $validation_flag = false;
                 continue 2;
             }
@@ -255,7 +282,7 @@ class submitty_student_auto_feed {
                 } else {
                     //Course mapping is needed, but section is not correctly entered in DB.
                     //Invalidate data file so that upsert is not performed as a safety precaution for system data integrity.
-                    $this->log_it("Row {$index}: {$course} has been mapped.  Section {$section} is in feed, but not mapped.");
+                    $this->log_it("Row {$row_number}: {$course} has been mapped.  Section {$section} is in feed, but not mapped.");
                     $validation_flag = false;
                 }
             }
@@ -561,7 +588,9 @@ SET
     user_firstname=upsert_users.user_firstname,
     user_lastname=upsert_users.user_lastname,
     user_preferred_firstname=
-        CASE WHEN user_updated=FALSE AND instructor_updated=FALSE
+        CASE WHEN user_updated=FALSE
+            AND instructor_updated=FALSE
+            AND COALESCE(users.user_preferred_firstname, '')=''
         THEN upsert_users.user_preferred_firstname
         ELSE users.user_preferred_firstname END,
     user_email=upsert_users.user_email
@@ -773,20 +802,23 @@ SQL;
     }
 } //END class submitty_student_auto_feed
 
+
 /** @static class to parse command line arguments */
 class cli_args {
 
-    /** @var array holds all CLI argument flags and their values */
+    /** @static @property array holds all CLI argument flags and their values */
     private static $args            = array();
-    /** @var string usage help message */
-    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] (-t term code)" . PHP_EOL;
-    /** @var string short description help message */
+    /** @static @property string usage help message */
+    private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] [-a auth str] (-t term code)" . PHP_EOL;
+    /** @static @property string short description help message */
     private static $help_short_desc = "Read student enrollment CSV and upsert to Submitty database." . PHP_EOL;
-    /** @var string argument list help message */
+    /** @static @property string argument list help message */
     private static $help_args_list  = <<<HELP
 Arguments:
 -h, --help    Show this help message.
+-a auth str   Specify 'user:password@server', overriding config.php.  Optional.
 -t term code  Term code associated with current student enrollment.  Required.
+-l            Send a test message to error log(s) and quit.
 
 HELP;
 
@@ -800,7 +832,7 @@ HELP;
      */
     public static function parse_args() {
 
-        self::$args = getopt('ht:', array('help'));
+        self::$args = getopt('ha:t:l', array('help'));
 
         switch(true) {
         case array_key_exists('h', self::$args):
@@ -810,7 +842,8 @@ HELP;
             print self::$help_args_list . PHP_EOL;
             exit(0);
         case array_key_exists('t', self::$args):
-            return self::$args['t'];
+        case array_key_exists('l', self::$args):
+            return self::$args;
         default:
             print self::$help_usage . PHP_EOL;
             exit(1);
