@@ -36,20 +36,6 @@ The auto feed script does not need to be run specifically on the Submitty
 server, but it will need access to the Submitty "master" database and the
 enrollment CSV data file.
 
-## config.php
-A series of `define` statements that is used to configure the auto feed script.
-Code comments will help explain usage.  This file must exist in the same directory
-as `submitty_student_auto_feed.php`.
-
-## Class files
-`ssaf_cli.php`
-`ssaf_db.php`
-`ssaf_sql.php`
-`ssaf_validate.php`
-
-These are class files that are required to run the submitty student auto feed
-script.  They must exist in the same directory as `submitty_student_auto_feed.php`.
-
 ### Command Line Arguments
 
 `-t` Specify the term code for the currently active term.  Required.
@@ -65,6 +51,20 @@ This overrides database authentication set in config.php.  Optional.
 
 `-l` Test log reporting.  This can be used to test that logs are being
 sent/delivered by email.  This does not process a data CSV.  Optional.
+
+## config.php
+A series of `define` statements that is used to configure the auto feed script.
+Code comments will help explain usage.  This file must exist in the same directory
+as `submitty_student_auto_feed.php`.
+
+## Class files
+`ssaf_cli.php`
+`ssaf_db.php`
+`ssaf_sql.php`
+`ssaf_validate.php`
+
+These are class files that are required to run the submitty student auto feed
+script.  They must exist in the same directory as `submitty_student_auto_feed.php`.
 
 ## imap\_remote.php
 
@@ -112,3 +112,36 @@ For Example:
 This will first run `imap_remote.php` to retrieve student enrollment data, then
 run `submitty_student_auto_feed.php` with command line arguments `-t s18`
 and `-a dbuser:dbpassword@dbserver.edu`.
+
+## add_drop_report.php
+
+Script used to compile reports on how many students have dropped among all
+courses registered in Submitty.
+
+This script should be run before the autofeed and again after the autofeed.
+The first run will read the database and write a temporary file of course
+enrollment numbers.  The second run will read the temporary file and compare
+it with the enrollment numbers in the database -- which may have changed.
+
+The enrollment report will be saved as a text file.  Optionally, this report
+can be emailed.  Note that the email function requires `sendmail` or equivalent,
+and the emails will be sent unauthenticated.
+
+### Command Line Parameters
+
+The first cli parameter must be either `1` or `2` to designate whether this is
+the first (prior to autofeed) or second (after auto feed) run.
+
+Second cli parameter is the term code.
+
+For example:  
+```
+$ ./add_drop_report.php 1 f21
+```
+Will invoke the _first_ run to cache enrollment values to a temporary file for
+the Fall 2021 term.
+```
+$ ./add_drop_report.php 2 f21
+```
+Will invoke the _second_ run to create the report of student enrollments for the
+Fall 2021 term.
