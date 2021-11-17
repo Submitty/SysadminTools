@@ -10,7 +10,9 @@ policies and practices.__
 
 Detailed instructions can be found at [http://submitty.org/sysadmin/student\_auto\_feed](http://submitty.org/sysadmin/student_auto_feed)
 
-Requirements: PHP 7.1 or higher with pgsql extension.  `imap_remote.php` also requires the imap extension.  This system is intended to be platform agnostic, but has been developed and tested with Ubuntu Linux.
+Requirements: PHP 7.1 or higher with pgsql extension.  `imap_remote.php` also
+requires the imap extension.  This system is intended to be platform agnostic,
+but has been developed and tested with Ubuntu Linux.
 
 ## submitty\_student\_auto\_feed.php
 A command line executable script to read a student enrollment data CSV file and
@@ -36,7 +38,8 @@ enrollment CSV data file.
 
 ## config.php
 A series of `define` statements that is used to configure the auto feed script.
-Code comments will help explain usage.  This file must exist in the same directory as `submitty_student_auto_feed.php`.
+Code comments will help explain usage.  This file must exist in the same directory
+as `submitty_student_auto_feed.php`.
 
 ## Class files
 `ssaf_cli.php`
@@ -44,7 +47,8 @@ Code comments will help explain usage.  This file must exist in the same directo
 `ssaf_sql.php`
 `ssaf_validate.php`
 
-These are class files that are required to run the submitty student auto feed script.  They must exist in the same directory as `submitty_student_auto_feed.php`.
+These are class files that are required to run the submitty student auto feed
+script.  They must exist in the same directory as `submitty_student_auto_feed.php`.
 
 ### Command Line Arguments
 
