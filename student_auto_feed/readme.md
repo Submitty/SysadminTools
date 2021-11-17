@@ -1,5 +1,5 @@
 # Submitty Student Auto Feed Script
-Readme last updated Sept 22, 2021
+Readme last updated Nov 17, 2021
 
 This is a code example for any University to use as a basis to have Submitty course's enrollment data added or updated on an automated schedule with a student enrollment CSV datasheet.
 
