@@ -106,5 +106,6 @@ class validate {
         return $are_all_unique;
     }
 }
+
 // EOF
 ?>

@@ -237,7 +237,11 @@ class submitty_student_auto_feed {
         return true;
     }
 
-
+    /**
+     * Call db::upsert to process CSV data to DB
+     *
+     * @return bool Always true
+     */
     private function upsert_data() {
         foreach ($this->data as $course => $rows) {
             if (db::upsert($this->semester, $course, $rows) === false) {
@@ -314,5 +318,6 @@ class submitty_student_auto_feed {
         $this->log_msg_queue .= date('m/d/y H:i:s : ', time()) . $msg . PHP_EOL;
     }
 }
+
 // EOF
 ?>

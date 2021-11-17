@@ -80,13 +80,15 @@ INSERT INTO courses_registration_sections (
 ON CONFLICT DO NOTHING
 SQL;
 
-    /* DROPPED USERS queries
+    /* -------------------------------------------------------------------------
+       DROPPED USERS queries
        We store a list of enrolled students (by user ID) from the data sheet to
        the tmp table, and then compare that list with those in the database's
        user table.  Anyone not in the tmp table wasn't in the datasheet and
        therefore assumed to no longer be enrolled.  Unenrolled (dropped)
        students are moved to the NULL section, which signifies they have
-       dropped the course.                                                    */
+       dropped the course.
+    ------------------------------------------------------------------------- */
     public const CREATE_TMP_TABLE = <<<SQL
 CREATE TEMPORARY TABLE IF NOT EXISTS tmp_enrolled (
     user_id VARCHAR
@@ -118,5 +120,6 @@ AND courses_users.user_group=4
 AND courses_users.manual_registration=FALSE
 SQL;
 }
+
 //EOF
 ?>

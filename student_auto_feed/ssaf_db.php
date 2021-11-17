@@ -205,6 +205,18 @@ class db {
         return true;
     }
 
+    /**
+     * Run SQL query with parameters
+     *
+     * Uses pg_query_params() to run the query to help ensure that pertinant
+     * data is properly escaped.  Returns NULL when there are no results, such
+     * as with a INSERT or UPDATE query.  Be careful that FALSE and NULL are
+     * equivalent when loosely compared.
+     *
+     * @param string $sql SQL query
+     * @param array $params Query parameters
+     * @return mixed FALSE on error.  Array of results or NULL on success.
+     */
     private static function run_query($sql, $params = null) {
         if (!self::check()) {
             return false;
@@ -224,5 +236,6 @@ class db {
         return $result !== false ? $result : null;
     }
 }
+
 // EOF
 ?>
