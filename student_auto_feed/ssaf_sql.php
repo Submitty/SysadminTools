@@ -25,6 +25,14 @@ FROM mapped_courses
 WHERE semester=$1
 SQL;
 
+    public const GET_COURSE_ENROLLMENT_COUNT = <<<SQL
+SELECT count(*) AS num_students FROM courses_users
+WHERE semester=$1
+AND course=$2
+AND user_group=4
+AND registration_section IS NOT NULL
+SQL;
+
     // UPSERT users table
     // Do not remove SQL comment as it is needed for preferred name log tracking
     public const UPSERT_USERS = <<<SQL

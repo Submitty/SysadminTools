@@ -74,6 +74,11 @@ define('VALIDATE_MIN_FILESIZE', 65536);
 //CSV that are not needed by submitty_student_auto_feed).
 define('VALIDATE_NUM_FIELDS', 10);
 
+//What ratio of dropped student enrollments is suspiciously too high, which may
+//indicate a problem with the CSV data file -- between 0 and 1.  Set to NULL to
+//disable this check.
+define('VALIDATE_DROP_RATIO', 0.5);
+
 //Define what character is delimiting each field.  ***THIS NEEDS TO BE SET.
 //EXAMPLE: chr(9) is the tab character.
 define('CSV_DELIM_CHAR', chr(9));

@@ -105,6 +105,50 @@ class validate {
 
         return $are_all_unique;
     }
+
+    /**
+     * Validate that there isn't an excessive drop ratio in course enrollments.
+     *
+     * An excessive ratio of dropped enrollments may indicate a problem with
+     * the data sheet.  Dropped enrollments can be either indicated by a row
+     * with a unacceptable registration code, or more critically THAT USER'S
+     * DATA ROW WAS OMITTED FROM THE DATASHEET.  In the latter case, it is
+     * difficult to tell when missing data is regular or improper.  Therefore
+     * this check relies on the config setting VALIDATE_DROP_RATIO as a
+     * confidence setting to indicate that processing must be aborted to
+     * (possibly? probably?) preserve data integrity.  Returns TRUE when
+     * validation is OK.  That is, ratio of dropped students is within
+     * confidence.  Or the ratio did not go beyond the cutoff.
+     *
+     * @param array $rows Data rows for one course
+     * @param string $term Current term code.  e.g. 'f21' for Fall 2021.
+     * @param string $course Course code for course's data.
+     * @return bool TRUE when validation OK, FALSE when validation failed.
+     */
+    public static function check_for_excessive_dropped_users(array $rows, string $term, string $course, &$diff, &$ratio) : bool {
+        // This check is disabled when VALIDATE_DROP_RATIO is set NULL.
+        if (is_null(VALIDATE_DROP_RATIO)) return true;
+
+        $ratio_cutoff = VALIDATE_DROP_RATIO * -1;
+        $current_enrollments = (int) db::get_enrollment_count($term, $course);
+        $new_enrollments = count($rows);
+
+        /* ---------------------------------------------------------------------
+           Dropped students shows a reduction in enrollment, and therefore the
+           difference will be a negative value to calculate the ratio, resulting
+           in a negative ratio.  A calculated ratio that is *smaller* or equals
+           the cutoff fails validation.  A positive ratio indicates students
+           adding the course, in which case validation is OK.
+
+           If $current_enrollments are 0, the course is empty of students and
+           there can be no dropped students.  Also, division by 0.
+           Only possible response is TRUE (validate OK), so set to 1.0 to ensure
+           ratio is always higher than the cutoff.
+        --------------------------------------------------------------------- */
+        $diff = $new_enrollments - $current_enrollments;
+        $ratio = $current_enrollments !== 0 ? $diff / $current_enrollments : 1.0;
+        return $ratio > $ratio_cutoff;
+    }
 }
 
 // EOF

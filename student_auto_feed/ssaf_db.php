@@ -96,6 +96,28 @@ class db {
     }
 
     /**
+     * Get student enrollment count for a specific semester and course.
+     *
+     * @param string $term
+     * @param string $course
+     * @return bool|string Enrollment count (as string) or FALSE on DB error.
+     */
+    public static function get_enrollment_count($semester, $course) {
+        self::$error = null;
+        if (!self::check()) {
+            return false;
+        }
+
+        $results = self::run_query(sql::GET_COURSE_ENROLLMENT_COUNT, array($semester, $course));
+        if ($results === false) {
+            self::$error .= "Error while retrieving course enrollment counts.";
+            return false;
+        }
+
+        return $results[0]['num_students'];
+    }
+
+    /**
      * Upsert $rows to Submitty master database.
      *
      * If an error occurs, this function returns FALSE.  self::run_query() will

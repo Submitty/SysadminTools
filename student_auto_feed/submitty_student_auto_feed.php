@@ -117,6 +117,9 @@ class submitty_student_auto_feed {
         case $this->get_csv_data():
             $this->log_it("Error getting CSV data.");
             break;
+        case $this->check_for_excessive_dropped_users():
+                // This check will block all upserts when an error is detected.
+                exit(1);
         case $this->check_for_duplicate_user_ids():
             $this->log_it("Duplicate user IDs detected in CSV file.");
             break;
@@ -232,6 +235,38 @@ class submitty_student_auto_feed {
                 $msg .= implode(", ", $user_ids);
                 $this->log_it($msg);
             }
+        }
+
+        return true;
+    }
+
+    private function check_for_excessive_dropped_users() {
+        $is_validated = true;
+        $invalid_courses = array(); // intentional local array
+        $ratio = 0;
+        $diff = 0;
+        foreach($this->data as $course => $rows) {
+            if (!validate::check_for_excessive_dropped_users($rows, $this->semester, $course, $diff, $ratio)) {
+                $invalid_courses[] = array('course' => $course, 'diff' => $diff, 'ratio' => round(abs($ratio), 3));
+                $is_validated = false;
+            }
+        }
+
+        if (!empty($invalid_courses)) {
+            usort($invalid_courses, function($a, $b) { return $a['course'] <=> $b['course']; });
+            $msg = "The following course(s) have an excessive ratio of dropped students.\n  Stats show mapped courses combined in base courses.\n";
+            array_unshift($invalid_courses, array('course' => "COURSE", 'diff' => "DIFF", 'ratio' => "RATIO")); // Header
+            foreach ($invalid_courses as $invalid_course) {
+                $msg .= "    " .
+                        str_pad($invalid_course['course'], 18, " ", STR_PAD_RIGHT) .
+                        str_pad($invalid_course['diff'], 6, " ", STR_PAD_LEFT) .
+                        str_pad($invalid_course['ratio'], 8, " ", STR_PAD_LEFT) .
+                        PHP_EOL;
+            }
+            $msg .= "  No upsert performed on any/all courses in Submitty due to suspicious data sheet.";
+
+            $this->log_it($msg);
+            return false;
         }
 
         return true;

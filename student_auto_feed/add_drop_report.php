@@ -330,7 +330,7 @@ class reports {
             $prev_course_enrollment = array_key_exists($course, $prev_course_enrollments) ? $prev_course_enrollments[$course] : 0;
             $manual_flag = array_key_exists($course, $manual_flags) ? $manual_flags[$course] : 0;
             $diff = $course_enrollment - $prev_course_enrollment;
-            $ratio = $course_enrollment != 0 ? abs(round(($diff / $prev_course_enrollment), 3)) : "N/A";
+            $ratio = $prev_course_enrollment != 0 ? abs(round(($diff / $prev_course_enrollment), 3)) : "N/A";
 
             // Align into columns
             $course = str_pad($course, 18, " ", STR_PAD_RIGHT);
