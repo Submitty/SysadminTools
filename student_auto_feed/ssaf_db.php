@@ -81,15 +81,18 @@ class db {
             return false;
         }
 
-        //Describe how auto-feed data is translated by mappings.
+        // Describe how auto-feed data is translated by mappings.
+        // There are no mappings when $result is null.
         $mappings = array();
-        foreach ($results as $row) {
-            $course = $row['course'];
-            $section = $row['registration_section'];
-            $mappings[$course][$section] = array(
-                'mapped_course'  => $row['mapped_course'],
-                'mapped_section' => $row['mapped_section']
-            );
+        if (!is_null($results)) {
+            foreach ($results as $row) {
+                $course = $row['course'];
+                $section = $row['registration_section'];
+                $mappings[$course][$section] = array(
+                    'mapped_course'  => $row['mapped_course'],
+                    'mapped_section' => $row['mapped_section']
+                );
+            }
         }
 
         return $mappings;

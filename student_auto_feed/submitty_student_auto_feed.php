@@ -118,8 +118,8 @@ class submitty_student_auto_feed {
             $this->log_it("Error getting CSV data.");
             break;
         case $this->check_for_excessive_dropped_users():
-                // This check will block all upserts when an error is detected.
-                exit(1);
+            // This check will block all upserts when an error is detected.
+            exit(1);
         case $this->check_for_duplicate_user_ids():
             $this->log_it("Duplicate user IDs detected in CSV file.");
             break;
