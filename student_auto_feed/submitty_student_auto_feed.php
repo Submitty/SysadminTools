@@ -11,10 +11,10 @@
  */
 
 namespace ssaf;
-require "config.php";
-require "ssaf_cli.php";
-require "ssaf_db.php";
-require "ssaf_validate.php";
+require __DIR__ . "/config.php";
+require __DIR__ . "/ssaf_cli.php";
+require __DIR__ . "/ssaf_db.php";
+require __DIR__ . "/ssaf_validate.php";
 
 // Important: Make sure we are running from CLI
 if (php_sapi_name() !== "cli") {

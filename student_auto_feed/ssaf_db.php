@@ -1,7 +1,6 @@
 <?php
 namespace ssaf;
-
-require "ssaf_sql.php";
+require __DIR__ . "/ssaf_sql.php";
 
 /**
  * Static database interaction class for Submitty Student Auto Feed
