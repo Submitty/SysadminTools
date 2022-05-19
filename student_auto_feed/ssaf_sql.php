@@ -55,7 +55,11 @@ SET user_numeric_id=EXCLUDED.user_numeric_id,
         THEN EXCLUDED.user_preferred_firstname
         ELSE users.user_preferred_firstname
         END,
-    user_email=EXCLUDED.user_email
+    user_email=
+        CASE WHEN COALESCE(EXCLUDED.user_email, '')<>''    
+        THEN EXCLUDED.user_email
+        ELSE users.user_email
+        END
 /* AUTH: "AUTO_FEED" */
 SQL;
 
