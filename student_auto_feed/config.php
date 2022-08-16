@@ -105,6 +105,9 @@ define('EXPECTED_TERM_CODE', '201705');
 //Header row, if it exists, must be discarded during processing.
 define('HEADER_ROW_EXISTS', true);
 
+//Set to true, if Submitty is using SAML for authentication.
+define('PROCESS_SAML', true);
+
 //Allows "\r" EOL encoding.  This is rare but exists (e.g. Excel for Macintosh).
 ini_set('auto_detect_line_endings', true);
 

@@ -52,20 +52,20 @@ class validate {
         case is_null(EXPECTED_TERM_CODE) ? true : $row[COLUMN_TERM_CODE] === EXPECTED_TERM_CODE:
             self::$error = "Row {$row_num} failed validation for unexpected term code \"{$row[COLUMN_TERM_CODE]}\".";
             return false;
-        // User ID must contain only lowercase alpha, numbers, underscore, and hyphen
-        case boolval(preg_match("/^[a-z0-9_\-]+$/", $row[COLUMN_USER_ID])):
+        // User ID must contain only alpha characters, numbers, underscore, hyphen, and period.
+        case boolval(preg_match("/^[a-z0-9_\-\.]+$/i", $row[COLUMN_USER_ID])):
             self::$error = "Row {$row_num} failed user ID validation \"{$row[COLUMN_USER_ID]}\".";
             return false;
         // First name must be alpha characters, white-space, or certain punctuation.
-        case boolval(preg_match("/^[a-zA-Z'`\-\. ]+$/", $row[COLUMN_FIRSTNAME])):
+        case boolval(preg_match("/^[a-z'`\-\. ]+$/i", $row[COLUMN_FIRSTNAME])):
             self::$error = "Row {$row_num} failed validation for student first name \"{$row[COLUMN_FIRSTNAME]}\".";
             return false;
         // Last name must be alpha characters, white-space, or certain punctuation.
-        case boolval(preg_match("/^[a-zA-Z'`\-\. ]+$/", $row[COLUMN_LASTNAME])):
+        case boolval(preg_match("/^[a-z'`\-\. ]+$/i", $row[COLUMN_LASTNAME])):
             self::$error = "Row {$row_num} failed validation for student last name \"{$row[COLUMN_LASTNAME]}\".";
             return false;
         // Student registration section must be alphanumeric, '_', or '-'.
-        case boolval(preg_match("/^[a-zA-Z0-9_\-]+$/", $row[COLUMN_SECTION])):
+        case boolval(preg_match("/^[a-z0-9_\-]+$/i", $row[COLUMN_SECTION])):
             self::$error = "Row {$row_num} failed validation for student section \"{$row[COLUMN_SECTION]}\".";
             return false;
         // Check email address is properly formed.  Blank email addresses are also accepted.
