@@ -159,6 +159,9 @@ class db {
         case self::run_query(sql::LOCK_COURSES_USERS, null) === false:
             self::$error .= "\nError during LOCK courses_users table, {$course}";
             return false;
+        case self::run_query(sql::LOCK_SAML_MAPPED_USERS, null) === false:
+            self::$error .= "\nError during LOCK saml_mapped_users table, {$course}";
+            return false;
         }
 
         // Do upsert of course enrollment data.
@@ -207,11 +210,20 @@ class db {
             }
         } // END row by row processing.
 
-        // Finish up by checking for dropped students.
+        // Process students who dropped a course.
         if (self::run_query(sql::DROPPED_USERS, $dropped_users_params) === false) {
             self::run_query(sql::ROLLBACK, null);
             self::$error .= "\nError processing dropped students, {$course}\n";
             return false;
+        }
+
+        // Add students to SAML mappings when PROCESS_SAML is set to true in config.php.
+        if (PROCESS_SAML) {
+            if (self::run_query(sql::INSERT_SAML_MAP, null) === false) {
+                self::run_query(sql::ROLLBACK, null);
+                self::$error .= "\nError processing saml mappings, {$course}\n";
+                return false;
+            }
         }
 
         // All data has been upserted.  Complete transaction and return success or failure.

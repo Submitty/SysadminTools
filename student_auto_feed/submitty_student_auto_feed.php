@@ -175,6 +175,10 @@ class submitty_student_auto_feed {
                 if (array_search($course, $this->course_list) !== false) {
                     if (validate::validate_row($row, $row_num)) {
                         $this->data[$course][] = $row;
+                        // Rows with blank emails are allowed, but they are being logged.
+                        if ($row[COLUMN_EMAIL] === "") {
+                            $this->log_it("Blank email found for user {$row[COLUMN_USER_ID]}, row {$row_num}.");
+                        }
                     } else {
                         $this->invalid_courses[$course] = true;
                         $this->log_it(validate::$error);
@@ -228,9 +232,19 @@ class submitty_student_auto_feed {
     private function check_for_duplicate_user_ids() {
         foreach($this->data as $course => $rows) {
             $user_ids = null;
-            // returns FALSE (as in there is an error) when duplicate IDs are found.
-            if (validate::check_for_duplicate_user_ids($rows, $user_ids) === false) {
-                $this->invalid_courses[$course] = true;
+            $d_rows = null;
+            // Returns FALSE (as in there is an error) when duplicate IDs are found.
+            // However, a duplicate ID does not invalidate a course.  Instead, the
+            // first enrollment is accepted, the other enrollments are discarded,
+            // and the event is logged.
+            if (validate::check_for_duplicate_user_ids($rows, $user_ids, $d_rows) === false) {
+                foreach($d_rows as $user_id => $userid_rows) {
+                    $length = count($userid_rows);
+                    for ($i = 1; $i < $length; $i++) {
+                        unset($this->data[$course][$userid_rows[$i]]);
+                    }
+                }
+
                 $msg = "Duplicate user IDs detected in {$course} data: ";
                 $msg .= implode(", ", $user_ids);
                 $this->log_it($msg);

@@ -7,6 +7,7 @@ class sql {
     public const LOCK_COURSES = "LOCK TABLE courses IN EXCLUSIVE MODE";
     public const LOCK_REG_SECTIONS = "LOCK TABLE courses_registration_sections IN EXCLUSIVE MODE";
     public const LOCK_COURSES_USERS = "LOCK TABLE courses_users IN EXCLUSIVE MODE";
+    public const LOCK_SAML_MAPPED_USERS = "LOCK TABLE saml_mapped_users IN EXCLUSIVE MODE";
     public const BEGIN = "BEGIN";
     public const COMMIT = "COMMIT";
     public const ROLLBACK = "ROLLBACK";
@@ -55,7 +56,11 @@ SET user_numeric_id=EXCLUDED.user_numeric_id,
         THEN EXCLUDED.user_preferred_firstname
         ELSE users.user_preferred_firstname
         END,
-    user_email=EXCLUDED.user_email
+    user_email=
+        CASE WHEN COALESCE(EXCLUDED.user_email, '')<>''
+        THEN EXCLUDED.user_email
+        ELSE users.user_email
+        END
 /* AUTH: "AUTO_FEED" */
 SQL;
 
@@ -127,6 +132,19 @@ AND courses_users.course=$2
 AND courses_users.user_group=4
 AND courses_users.manual_registration=FALSE
 SQL;
+
+    public const INSERT_SAML_MAP = <<<SQL
+INSERT INTO saml_mapped_users (
+    saml_id,
+    user_id
+) SELECT tmp.user_id, tmp.user_id
+FROM tmp_enrolled tmp
+LEFT OUTER JOIN saml_mapped_users saml1 ON tmp.user_id = saml1.user_id
+LEFT OUTER JOIN saml_mapped_users saml2 ON tmp.user_id = saml2.saml_id
+WHERE saml1.user_id IS NULL
+AND saml2.saml_id IS NULL
+SQL;
+
 }
 
 //EOF
