@@ -170,7 +170,11 @@ class submitty_student_auto_feed {
             $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
 
             // Does $row have a valid registration code?
-            if (array_search($row[COLUMN_REGISTRATION], STUDENT_REGISTERED_CODES) !== false) {
+            $graded_codes = STUDENT_REGISTERED_CODES;
+            $audit_codes = is_null(STUDENT_AUDIT_CODES) ? array() : STUDENT_AUDIT_CODES;
+            $latedrop_codes = is_null(STUDENT_LATEDROP_CODES) ? array() : STUDENT_LATEDROP_CODES;
+            $all_valid_codes = array_merge($graded_codes, $audit_codes, $latedrop_codes);
+            if (array_search($row[COLUMN_REGISTRATION], $all_valid_codes) !== false) {
                 // Check that $row is associated with the course list
                 if (array_search($course, $this->course_list) !== false) {
                     if (validate::validate_row($row, $row_num)) {
@@ -192,6 +196,10 @@ class submitty_student_auto_feed {
                         if (validate::validate_row($row, $row_num)) {
                             $row[COLUMN_SECTION] = $this->mapped_courses[$course][$section]['mapped_section'];
                             $this->data[$m_course][] = $row;
+                            // Rows with blank emails are allowed, but they are being logged.
+                            if ($row[COLUMN_EMAIL] === "") {
+                                $this->log_it("Blank email found for user {$row[COLUMN_USER_ID]}, row {$row_num}.");
+                            }
                         } else {
                             $this->invalid_courses[$m_course] = true;
                             $this->log_it(validate::$error);

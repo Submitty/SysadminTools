@@ -175,12 +175,27 @@ class db {
                 $row[COLUMN_EMAIL]
             );
 
+            // Determine registration type for courses_users table
+            // Registration type code has already been validated by now.
+            switch(true) {
+            case in_array($row[COLUMN_REGISTRATION], STUDENT_REGISTERED_CODES):
+                $registration_type = sql::RT_GRADED;
+                break;
+            case in_array($row[COLUMN_REGISTRATION], STUDENT_AUDIT_CODES):
+                $registration_type = sql::RT_AUDIT;
+                break;
+            default:
+                $registration_type = sql::RT_LATEDROP;
+                break;
+            }
+
             $courses_users_params = array(
                 $semester,
                 $course,
                 $row[COLUMN_USER_ID],
                 4,
                 $row[COLUMN_SECTION],
+                $registration_type,
                 "FALSE"
             );
 
