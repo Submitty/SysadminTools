@@ -15,7 +15,7 @@ class sql {
     // Registration type constants
     public const RT_GRADED = "graded";
     public const RT_AUDIT = "audit";
-    public const RT_LATEDROP = "late drop / withdrawn";
+    public const RT_LATEDROP = "withdrawn";
 
     // SELECT queries
     public const GET_COURSES = <<<SQL
