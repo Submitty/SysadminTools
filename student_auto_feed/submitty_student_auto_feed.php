@@ -347,6 +347,8 @@ class submitty_student_auto_feed {
             $this->log_it("Could not open CSV file.");
             return false;
         }
+
+        return true;
     }
 
     /** Close CSV file */
