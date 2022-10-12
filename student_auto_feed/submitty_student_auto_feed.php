@@ -343,17 +343,7 @@ class submitty_student_auto_feed {
      */
     private function open_csv() {
         $this->fh = fopen(CSV_FILE, "r");
-        if ($this->fh !== false) {
-            if (flock($this->fh, LOCK_SH, $wouldblock)) {
-                return true;
-            } else if ($wouldblock === 1) {
-                $this->logit("Another process has locked the CSV.");
-                return false;
-            } else {
-                $this->logit("CSV not blocked, but still could not attain lock for reading.");
-                return false;
-            }
-        } else {
+        if ($this->fh === false) {
             $this->log_it("Could not open CSV file.");
             return false;
         }
