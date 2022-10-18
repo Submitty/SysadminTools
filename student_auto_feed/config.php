@@ -52,16 +52,34 @@ define('DB_PASSWORD', 'my_database_password'); //DO NOT USE IN PRODUCTION
 // accessed locally or remotely.
 define('CSV_FILE', '/path/to/datafile.csv');
 
-// Student registration status is important, as data dumps can contain students
-// who have dropped a course either before the semester starts or during the
-// semester.  This array will contain all valid registered-student codes can be
-// expected in the data dump.
-//
-// IMPORTANT: Consult with your University's IT administrator and/or registrar
-//            to add all pertinant student-is-registered codes that can be found
-//            in your CSV data dump.  EXAMPLE: 'RA' may mean "registered by
-//            advisor" and 'RW' may mean "registered via web"
+/* STUDENT REGISTRATION CODES --------------------------------------------------
+ *
+ * Student registration status is important, as data dumps can contain students
+ * who have dropped a course either before the semester starts or during the
+ * semester.  Be sure that all codes are set as an array, even when only one
+ * code is found in the CSV data.  Set to NULL when there are no codes for
+ * either student auditing a course or students late-withdrawn from a course.
+ *
+ * IMPORTANT: Consult with your University's IT administrator and/or registrar
+ *            for the pertinant student registration codes that can be found in
+ *            your CSV data dump.
+ *
+ * -------------------------------------------------------------------------- */
+
+// These codes are for students who are registered to take a course for a grade.
+// EXAMPLE: 'RA' may mean "registered by advisor" and 'RW' may mean
+// "registered via web".  Do not set to NULL.
 define('STUDENT_REGISTERED_CODES', array('RA', 'RW'));
+
+// These codes are for students auditing a course.  These students will not be
+// given a grade.
+// Set this to NULL if your CSV data does not provide this information.
+define('STUDENT_AUDIT_CODES', array('AU'));
+
+// These codes are for students who have dropped their course after the drop
+// deadline and are given a late-drop or withdrawn code on their transcript.
+// Set this to NULL if your CSV data does not provide this information.
+define('STUDENT_LATEDROP_CODES', array('W'));
 
 //An exceptionally small file size can indicate a problem with the feed, and
 //therefore the feed should not be processed to preserve data integrity of the

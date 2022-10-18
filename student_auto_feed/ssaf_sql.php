@@ -12,6 +12,11 @@ class sql {
     public const COMMIT = "COMMIT";
     public const ROLLBACK = "ROLLBACK";
 
+    // Registration type constants
+    public const RT_GRADED = "graded";
+    public const RT_AUDIT = "audit";
+    public const RT_LATEDROP = "withdrawn";
+
     // SELECT queries
     public const GET_COURSES = <<<SQL
 SELECT course
@@ -72,15 +77,22 @@ INSERT INTO courses_users (
     user_id,
     user_group,
     registration_section,
+    registration_type,
     manual_registration
-) VALUES ($1, $2, $3, $4, $5, $6)
+) VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (semester, course, user_id) DO UPDATE
 SET registration_section=
-    CASE WHEN courses_users.user_group=4
-        AND courses_users.manual_registration=FALSE
-    THEN EXCLUDED.registration_section
-    ELSE courses_users.registration_section
-    END
+        CASE WHEN courses_users.user_group=4
+            AND courses_users.manual_registration=FALSE
+        THEN EXCLUDED.registration_section
+        ELSE courses_users.registration_section
+        END,
+    registration_type=
+        CASE WHEN courses_users.user_group=4
+            AND courses_users.manual_registration=FALSE
+        THEN EXCLUDED.registration_type
+        ELSE courses_users.registration_type
+        END
 SQL;
 
     // INSERT courses_registration_sections table
