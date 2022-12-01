@@ -176,7 +176,8 @@ define('JSON_REMOTE_USERNAME',    'json_user');     //DO NOT USE IN PRODUCTION
 define('JSON_REMOTE_PASSWORD',    'json_password'); //DO NOT USE IN PRODUCTION
 define('JSON_REMOTE_PATH',        '/path/to/files/');
 
-// Add/Drop Reporting
+/* ADD/DROP REPORTING ------------------------------------------------------ */
+
 // Where to email reports.  Set to null to disable sending email.
 // Sendmail (or equivalent) needs to be installed on the server and configured
 // in php.ini.  Reports are sent "unauthenticated".
