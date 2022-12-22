@@ -158,25 +158,46 @@ class submitty_student_auto_feed {
             $row_num = 1;
         }
 
+        // Any term IDs found that is not associated with TERM_IDS[] will be
+        // added here.
+        $unexpected_term_ids = array();
+
         // Read and assign csv rows into $this->data array
         $row = fgetcsv($this->fh, 0, CSV_DELIM_CHAR);
         while(!feof($this->fh)) {
             //Trim whitespace from all fields in $row
             array_walk($row, function(&$val, $key) { $val = trim($val); });
 
+            // Skip over and record any term IDs not specified in config.php
+            if (!is_null(TERM_IDS) && !in_array($row[COLUMN_TERM_CODE], TERM_IDS, true)) {
+                // Record an unexpected term ID only once.
+                if (!in_array($row[COLUMN_TERM_CODE], $unexpected_term_ids, true)) $unexpected_term_ids[] = $row[COLUMN_TERM_CODE];
+                $row = fgetcsv($this->fh, 0, CSV_DELIM_CHAR);
+                $row_num++;
+                continue;
+            }
+
+            // Skip over term IDs not associated with $this->semester.
+            if (!is_null(TERM_IDS) && $row[COLUMN_TERM_CODE] !== TERM_IDS[$this->semester]) {
+                $row = fgetcsv($this->fh, 0, CSV_DELIM_CHAR);
+                $row_num++;
+                continue;
+            }
+
+            // Proceed processing row...
             // Remove any leading zeroes from "integer" registration sections.
             if (ctype_digit($row[COLUMN_SECTION])) $row[COLUMN_SECTION] = ltrim($row[COLUMN_SECTION], "0");
 
             $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
 
-            // Does $row have a valid registration code?
+             // Does $row have a valid registration code?
             $graded_codes = STUDENT_REGISTERED_CODES;
             $audit_codes = is_null(STUDENT_AUDIT_CODES) ? array() : STUDENT_AUDIT_CODES;
             $latedrop_codes = is_null(STUDENT_LATEDROP_CODES) ? array() : STUDENT_LATEDROP_CODES;
             $all_valid_codes = array_merge($graded_codes, $audit_codes, $latedrop_codes);
-            if (array_search($row[COLUMN_REGISTRATION], $all_valid_codes) !== false) {
+            if (!in_array($row[COLUMN_REGISTRATION], $all_valid_codes)) {
                 // Check that $row is associated with the course list
-                if (array_search($course, $this->course_list) !== false) {
+                if (in_array($course, $this->course_list)) {
                     if (validate::validate_row($row, $row_num)) {
                         $this->data[$course][] = $row;
                         // Rows with blank emails are allowed, but they are being logged.
@@ -224,6 +245,12 @@ class submitty_student_auto_feed {
 
         // Most runtime involves the database, so we'll release the CSV now.
         $this->close_csv();
+
+        // Before we return, we need to log any unexpected term IDs encountered.
+        if (!empty($unexpected_term_ids)) {
+            $ux_ids = implode(", ", $unexpected_term_ids);
+            $this->log_it("Data sheet had the following unexpected term IDs: {$ux_ids}");
+        }
 
         // Done.
         return true;

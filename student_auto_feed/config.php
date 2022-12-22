@@ -115,10 +115,14 @@ define('COLUMN_FIRSTNAME',     2);  //Student's First Name
 define('COLUMN_LASTNAME',      1);  //Student's Last Name
 define('COLUMN_PREFERREDNAME', 3);  //Student's Preferred Name
 define('COLUMN_EMAIL',         4);  //Student's Campus Email
-define('COLUMN_TERM_CODE',     11); //Semester code used in data validation
+define('COLUMN_TERM_CODE',     11); //Term identifier code
 
-//Validate term code.  Set to null to disable this check.
-define('EXPECTED_TERM_CODE', '201705');
+// Datasheets may mix enrollment data for multiple terms and identify which term
+// is which with a specific ID.  This is denoted as an array.  Index is the
+// term as dictated on the command line.  Value is the associated ID in the
+// data sheet (same as COLUMN_TERM_CODE, above).
+// Set this to NULL if your datasheet does not have this column.
+define('TERM_IDS', array('f17'=>"201709", 's18'=>"201801"));
 
 //Header row, if it exists, must be discarded during processing.
 define('HEADER_ROW_EXISTS', true);
