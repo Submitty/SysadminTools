@@ -129,10 +129,23 @@ define('PROCESS_SAML', true);
 //Allows "\r" EOL encoding.  This is rare but exists (e.g. Excel for Macintosh).
 ini_set('auto_detect_line_endings', true);
 
+/* DATA SOURCING --------------------------------------------------------------
+ * The Student Autofeed provides helper scripts to retrieve the CSV file for
+ * processing.  Shell script ssaf.sh is used to invoke one of the helper
+ * scripts and then execute the autofeed.  Current options are csv_local.php,
+ * imap_remote.php, and json_remote.php
+ * ------------------------------------------------------------------------- */
+
+//Local CSV
+//This is used by csv_local.php to reference where the CSV file is provided.
+define('LOCAL_SOURCE_CSV', '/path/to/csv');
+
 //Remote IMAP
 //This is used by imap_remote.php to login and retrieve a student enrollment
 //datasheet, should datasheets be provided via an IMAP email box.  This also
-//works with exchange servers with IMAP enabled.
+//works with exchange servers (local network and cloud) with IMAP and basic
+//authentication enabled.
+//Note that this does NOT work should exchange require OAuth2.
 //IMAP_FOLDER is the folder where the data sheets can be found.
 //IMAP_OPTIONS: q.v. "Optional flags for names" at https://www.php.net/manual/en/function.imap-open.php
 //IMAP_FROM is for validation.  Make sure it matches the identity of who sends the data sheets
@@ -163,7 +176,8 @@ define('JSON_REMOTE_USERNAME',    'json_user');     //DO NOT USE IN PRODUCTION
 define('JSON_REMOTE_PASSWORD',    'json_password'); //DO NOT USE IN PRODUCTION
 define('JSON_REMOTE_PATH',        '/path/to/files/');
 
-// Add/Drop Reporting
+/* ADD/DROP REPORTING ------------------------------------------------------ */
+
 // Where to email reports.  Set to null to disable sending email.
 // Sendmail (or equivalent) needs to be installed on the server and configured
 // in php.ini.  Reports are sent "unauthenticated".
