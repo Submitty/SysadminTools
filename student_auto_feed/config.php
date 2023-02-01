@@ -116,6 +116,7 @@ define('COLUMN_LASTNAME',      1);  //Student's Last Name
 define('COLUMN_PREFERREDNAME', 3);  //Student's Preferred Name
 define('COLUMN_EMAIL',         4);  //Student's Campus Email
 define('COLUMN_TERM_CODE',     11); //Semester code used in data validation
+define('COLUMN_REG_ID',        12); //Course and Section registration ID
 
 //Validate term code.  Set to null to disable this check.
 define('EXPECTED_TERM_CODE', '201705');

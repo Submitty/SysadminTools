@@ -199,7 +199,7 @@ class db {
                 "FALSE"
             );
 
-            $reg_sections_params = array($semester, $course, $row[COLUMN_SECTION]);
+            $reg_sections_params = array($semester, $course, $row[COLUMN_SECTION], $row[COLUMN_REG_ID]);
             $tmp_table_params = array($row[COLUMN_USER_ID]);
             $dropped_users_params = array($semester, $course);
 
