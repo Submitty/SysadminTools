@@ -5,8 +5,9 @@
 # Invoke with -y or --yesterday to compile with yesterday's timestamps.
 # Useful if you run this script overnight starting after 12AM.
 
-# Author: Peter Bailie, RPI Research Computing
-# Date:   April 29, 2022
+# Author:  Peter Bailie, RPI Research Computing
+# Date:    April 29, 2022
+# Updated: February 7, 2023
 
 use strict;
 use warnings;
@@ -28,46 +29,58 @@ my $datestamp = strftime "%Y-%m-%d", gmtime(time + $epoch_offset);
 open my $psql_fh, "<:encoding(UTF-8)", $PSQL_LOG;
 open my $pnc_fh, ">>:encoding(UTF-8)", $PNC_LOG;
 
-my ($timestamp, $userid, $auth) = ("", "", "");
-my ($oldfn, $newfn, $oldln, $newln, $line1, $line2);
+# fn = firstname/givenname, ln = lastname/familyname
+my ($timestamp, $userid, $auth, $oldfn, $newfn, $oldln, $newln, $line1, $line2);
+my $regex_check = 1;
 while (<$psql_fh>) {
-    ($timestamp, $userid, $oldfn, $newfn, $oldln, $newln) = ($1, $2, $3, $4, $5, $6) if (/^${datestamp} (\d{2}:\d{2}:\d{2}\.\d{3} [A-Z]{3}).+DETAIL:  USER_ID: "(.+?)" (?:PREFERRED_FIRSTNAME OLD: "(.*?)" NEW: "(.*?)" )?(?:PREFERRED_LASTNAME OLD: "(.*?)" NEW: "(.*?)")?$/);
-    $auth = $1 if (/\/\* AUTH: "(.+)" \*\//);
-    # $auth is always on a different line than $timestamp, $userid.
-    # But all three having data will indicate we have collected pref name change logs.
-    if ($timestamp ne "" && $userid ne "" && $auth ne "") {
-        # $oldfn, $newfn, $oldln, $oldfn -- some may be undefined.
-        # This happens when either the firstname or lastname change wasn't recorded in PSQL logs (because no change occured).
-        # Undefined vars need to be defined to prevent 'concatenation by undefned var' warning.
-        foreach ($oldfn, $newfn, $oldln, $newln) {
-             $_ = "" if (!defined $_);
+    if ($regex_check == 1) {
+        if ($_ =~ m/^${datestamp} (\d{2}:\d{2}:\d{2}\.\d{3} [A-Z]{3}).+LOG:  PREFERRED_NAME DATA UPDATE$/) {
+            $timestamp = $1;
+            $regex_check = 2;
         }
-
-        # If both old and new firstnames are blank, no change was logged.
-        if ($oldfn ne "" || $newfn ne "") {
-            ($oldfn, $newfn) = rpad(19, $oldfn, $newfn);
-            $line1 = "  OLD PREF FIRSTNAME: ${oldfn}";
-            $line2 = "  NEW PREF FIRSTNAME: ${newfn}";
-        } else {
-            ($line1, $line2) = ("", "");
-            ($line1, $line2) = rpad(41, $line1, $line2);
+    } elsif ($regex_check == 2) {
+        if ($_ =~ m/DETAIL:  USER_ID: "(.+?)" (?:PREFERRED_GIVENNAME OLD: "(.*?)" NEW: "(.*?)" )?(?:PREFERRED_FAMILYNAME OLD: "(.*?)" NEW: "(.*?)")?/) {
+            ($userid, $oldfn, $newfn, $oldln, $newln) = ($1, $2, $3, $4, $5);
+            $regex_check = 3;
         }
+    } elsif ($regex_check == 3) {
+        if ($_ =~ m/\/\* AUTH: "(.+)" \*\//) {
+            $auth = $1;
 
-        # If both old and new lastnames are blank, no change was logged.
-        if ($oldln ne "" || $newln ne "") {
-            ($oldln, $oldfn) = rpad(19, $oldln, $oldfn);
-            $line1 .= " OLD PREF LASTNAME: ${oldln}\n";
-            $line2 .= " NEW PREF LASTNAME: ${newln}\n";
-        } else {
-            $line1 .= "\n";
-            $line2 .= "\n";
+            # $oldfn, $newfn, $oldln, $oldfn -- some may be undefined.
+            # This happens when either the givenname or familyname change wasn't recorded in PSQL logs (because no change occured).
+            # Undefined vars need to be defined to prevent 'concatenation by undefned var' warning.
+            foreach ($oldfn, $newfn, $oldln, $newln) {
+                $_ = "" if (!defined $_);
+            }
+
+            # If both old and new given names are blank, no change was logged.
+            if ($oldfn ne "" || $newfn ne "") {
+                ($oldfn, $newfn) = rpad(19, $oldfn, $newfn);
+                $line1 = "  OLD PREF GIVENNAME: ${oldfn}";
+                $line2 = "  NEW PREF GIVENNAME: ${newfn}";
+            } else {
+                ($line1, $line2) = ("", "");
+                ($line1, $line2) = rpad(41, $line1, $line2);
+            }
+
+            # If both old and new family names are blank, no change was logged.
+            if ($oldln ne "" || $newln ne "") {
+                ($oldln, $oldfn) = rpad(19, $oldln, $oldfn);
+                $line1 .= " OLD PREF FAMILYNAME: ${oldln}\n";
+                $line2 .= " NEW PREF FAMILYNAME: ${newln}\n";
+            } else {
+                $line1 .= "\n";
+                $line2 .= "\n";
+            }
+
+            ($userid) = rpad(9, $userid);
+            print $pnc_fh "${datestamp} ${timestamp}  USER: ${userid}  CHANGED BY: ${auth}\n";
+            print $pnc_fh $line1;
+            print $pnc_fh $line2;
+
+            $regex_check = 1;
         }
-
-        ($userid) = rpad(9, $userid);
-        print $pnc_fh "${datestamp} ${timestamp}  USER: ${userid}  CHANGED BY: ${auth}\n";
-        print $pnc_fh $line1;
-        print $pnc_fh $line2;
-        ($timestamp, $userid, $auth) = ("", "", "");
     }
 }
 
