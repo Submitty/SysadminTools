@@ -1,24 +1,28 @@
-# Preferred Name Logging
+# Preferred Name Change Logging
 
-## pnc_compile.pl
+In the interests of diversity, Submitty provides for users to set a preferred name should it be different from their legal name.  This feature can be abused, so changes to a user's preferred name is recorded into Postgresql's log for review.  To make it easier to locate these logged messages, a sysadmin tools script, `pnc_compile.pl`, is provided to fetch the preferred name change logs from Postgresql and compile them into a human readable report.
 
-This script will help track when user preferred names are changed.  It attempts
-to compile a report of who made a preferred name change, and what change had
-occurred.
+**IMPORTANT:** `pnc_compile.pl` needs to operate on a host that can directly access Postgresql's log.  Typically, this means the script must be setup on the same server as Postgresql.
 
-Submitty provides the preferred name change information in the Postgresql log.
-This scipt is used to parse the Postgresql log and create its own report
-of preferred name changes that is much more human readable.
+1. Make sure your host has Perl 5.30.0 or later.
+  * Ubuntu 20.04 includes Perl 5.30.0.
+2. Retrieve `pnc_compile.pl` from [Github](https://raw.githubusercontent.com/Submitty/SysadminTools/main/preferred_name_logging/pnc_compile.pl) (right click link and choose "Save Link As...")
+3. Edit code file to setup its configuration.
+  * Locate the two lines shown below.  They are near the top of the file.  These lines dictate where to look for Postgresql's log and where to write the script's compiled log.
+  * `$PSQL_LOG` dictates where Postgresql's log is located. `$PNC_LOG` dictates where this script will record and append its report.
+  * The default for `$PSQL_LOG` is set for Postgresql 12 running in Ubuntu 20.04.  The default for `$PNC_LOG` will write the script's report to the same directory as the script file.
+  *  Change these values to match your host's setup.
+  ```perl
+  my $PSQL_LOG = "/var/log/postgresql/postgresql-12-main.log";
+  my $PNC_LOG  = "preferred_name_change_report.log";
+  ```
+4. Setup a cron schedule to run the script.
+  * Postgresql's log is typically owned by `root`, so it is mandatory to run the script as `root`.
+  * Be sure to set execute permission on the script.
+  * The script will parse Postgresql's log *by the current day's datestamp*, so it is intended that the script is run once per day.
+  * Alternatively, if you wish to schedule the crontab for overnight after 12AM, you can set the `-y` or `--yesterday` argument so the script will intentionally parse Postgresql's log by the *previous* day's datestamp.  e.g. `/path/to/pnc_compile.pl -y`
 
-This script will parse logs based on a specific datestamp.  Since this script
-acquires its datestamp based on GMT, it might work best when the postgresql logs
-are timestamped in UTC.
-
-This is intended to be run on the postgresql server on at least a daily basis.
-Invoke the script with `-y` or `--yesterday` to parse logs with yesterday's
-datestamp.  That is useful to run the script overnight after 12AM.
-
-## FERPA
+# FERPA
 
 Data processed and logged by this tool may be protected by
 [FERPA (20 U.S.C. § 1232g)](https://www2.ed.gov/policy/gen/guid/fpco/ferpa/index.html).
