@@ -45,21 +45,21 @@ SQL;
 INSERT INTO users (
     user_id,
     user_numeric_id,
-    user_firstname,
-    user_lastname,
-    user_preferred_firstname,
+    user_givenname,
+    user_familyname,
+    user_preferred_givenname,
     user_email
 ) VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (user_id) DO UPDATE
 SET user_numeric_id=EXCLUDED.user_numeric_id,
-    user_firstname=EXCLUDED.user_firstname,
-    user_lastname=EXCLUDED.user_lastname,
-    user_preferred_firstname=
+    user_givenname=EXCLUDED.user_givenname,
+    user_familyname=EXCLUDED.user_familyname,
+    user_preferred_givenname=
         CASE WHEN users.user_updated=FALSE
             AND users.instructor_updated=FALSE
-            AND COALESCE(users.user_preferred_firstname, '')=''
-        THEN EXCLUDED.user_preferred_firstname
-        ELSE users.user_preferred_firstname
+            AND COALESCE(users.user_preferred_givenname, '')=''
+        THEN EXCLUDED.user_preferred_givenname
+        ELSE users.user_preferred_givenname
         END,
     user_email=
         CASE WHEN COALESCE(EXCLUDED.user_email, '')<>''
