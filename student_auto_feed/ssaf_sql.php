@@ -101,7 +101,7 @@ INSERT INTO courses_registration_sections (
     semester,
     course,
     registration_section_id,
-    course_id
+    course_section_id
 ) VALUES ($1, $2, $3, $4)
 ON CONFLICT DO NOTHING
 SQL;
