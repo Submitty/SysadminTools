@@ -158,58 +158,95 @@ class submitty_student_auto_feed {
             $row_num = 1;
         }
 
+        $graded_reg_codes = STUDENT_REGISTERED_CODES;
+        $audit_reg_codes = is_null(STUDENT_AUDIT_CODES) ? array() : STUDENT_AUDIT_CODES;
+        $latedrop_reg_codes = is_null(STUDENT_LATEDROP_CODES) ? array() : STUDENT_LATEDROP_CODES;
+        $all_valid_reg_codes = array_merge($graded_reg_codes, $audit_reg_codes, $latedrop_reg_codes);
+        $unexpected_term_codes = array();
+
         // Read and assign csv rows into $this->data array
         $row = fgetcsv($this->fh, 0, CSV_DELIM_CHAR);
         while(!feof($this->fh)) {
-            //Trim whitespace from all fields in $row
+            // Course is comprised of an alphabetic prefix and a numeric suffix.
+            $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
+
+            // Trim whitespace from all fields in $row.
             array_walk($row, function(&$val, $key) { $val = trim($val); });
 
             // Remove any leading zeroes from "integer" registration sections.
             if (ctype_digit($row[COLUMN_SECTION])) $row[COLUMN_SECTION] = ltrim($row[COLUMN_SECTION], "0");
 
-            $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
+            switch(true) {
+            // Check that $row has an appropriate student registration.
+            case array_search($row[COLUMN_REGISTRATION], $all_valid_reg_codes) === false:
+                // Skip row.
+                break;
 
-            // Does $row have a valid registration code?
-            $graded_codes = STUDENT_REGISTERED_CODES;
-            $audit_codes = is_null(STUDENT_AUDIT_CODES) ? array() : STUDENT_AUDIT_CODES;
-            $latedrop_codes = is_null(STUDENT_LATEDROP_CODES) ? array() : STUDENT_LATEDROP_CODES;
-            $all_valid_codes = array_merge($graded_codes, $audit_codes, $latedrop_codes);
-            if (array_search($row[COLUMN_REGISTRATION], $all_valid_codes) !== false) {
-                // Check that $row is associated with the course list
-                if (array_search($course, $this->course_list) !== false) {
+            // Check that $row is associated with the current term (if check is enabled)
+            // Assume this check is OK, when EXPECTED_TERM_CODE is null (check disabled)
+            case is_null(EXPECTED_TERM_CODE) ? false : $row[COLUMN_TERM_CODE] !== EXPECTED_TERM_CODE:
+                // Note the unexpected term code for logging, if not already noted.
+                if (array_search($row[COLUMN_TERM_CODE], $unexpected_term_codes) === false) {
+                    $unexpected_term_codes[] = $row[COLUMN_TERM_CODE];
+                }
+                break;
+
+            // Check that $row is associated with the course list.
+            case array_search($course, $this->course_list) !== false:
+                if (validate::validate_row($row, $row_num)) {
+                    // Include $row
+                    $this->data[$course][] = $row;
+
+                    // $row with a blank email is included, but it is also logged.
+                    if ($row[COLUMN_EMAIL] === "") {
+                        $this->log_it("Blank email found for user {$row[COLUMN_USER_ID]}, row {$row_num}.");
+                    }
+                } else {
+                    // There is a problem with $row, so log the problem and skip.
+                    $this->invalid_courses[$course] = true;
+                    $this->log_it(validate::$error);
+                }
+                break;
+
+            // Check that the $row is associated with a mapped course.
+            case array_key_exists($course, $this->mapped_courses):
+                // Also verify that the section is mapped.
+                $section = $row[COLUMN_SECTION];
+                if (array_key_exists($section, $this->mapped_courses[$course])) {
+                    $m_course = $this->mapped_courses[$course][$section]['mapped_course'];
                     if (validate::validate_row($row, $row_num)) {
-                        $this->data[$course][] = $row;
-                        // Rows with blank emails are allowed, but they are being logged.
+                        // Include $row.
+                        $row[COLUMN_SECTION] = $this->mapped_courses[$course][$section]['mapped_section'];
+                        $this->data[$m_course][] = $row;
+
+                        // $row with a blank email is allowed, but it is also logged.
                         if ($row[COLUMN_EMAIL] === "") {
                             $this->log_it("Blank email found for user {$row[COLUMN_USER_ID]}, row {$row_num}.");
                         }
                     } else {
-                        $this->invalid_courses[$course] = true;
+                        // There is a problem with $row, so log the problem and skip.
+                        $this->invalid_courses[$m_course] = true;
                         $this->log_it(validate::$error);
                     }
-                // Instead, check that the $row is associated with mapped course
-                } else if (array_key_exists($course, $this->mapped_courses)) {
-                    $section = $row[COLUMN_SECTION];
-                    // Also verify that the section is mapped.
-                    if (array_key_exists($section, $this->mapped_courses[$course])) {
-                        $m_course = $this->mapped_courses[$course][$section]['mapped_course'];
-                        if (validate::validate_row($row, $row_num)) {
-                            $row[COLUMN_SECTION] = $this->mapped_courses[$course][$section]['mapped_section'];
-                            $this->data[$m_course][] = $row;
-                            // Rows with blank emails are allowed, but they are being logged.
-                            if ($row[COLUMN_EMAIL] === "") {
-                                $this->log_it("Blank email found for user {$row[COLUMN_USER_ID]}, row {$row_num}.");
-                            }
-                        } else {
-                            $this->invalid_courses[$m_course] = true;
-                            $this->log_it(validate::$error);
-                        }
-                    }
                 }
-            }
+                break;
+
+            default:
+                // Skip row by default.
+                break;
+
+            } // END switch (true)
 
             $row = fgetcsv($this->fh, 0, CSV_DELIM_CHAR);
             $row_num++;
+        }
+
+        // Log any unexpected term codes.
+        // This may provide a notice that the next term's data is available.
+        if (!empty($unexpected_term_codes)) {
+            $msg = "Unexpected term codes in CSV: ";
+            $msg .= implode(", ", $unexpected_term_codes);
+            $this->log_it($msg);
         }
 
         /* ---------------------------------------------------------------------
@@ -262,6 +299,16 @@ class submitty_student_auto_feed {
         return true;
     }
 
+    /**
+     * An excessive ratio of dropped users may indicate bad data in the CSV.
+     *
+     * The confidence ratio is defined in config.php as VALIDATE_DROP_RATIO.
+     * Confidence value is a float between 0 and 1.0.
+     *
+     * @see validate::check_for_excessive_dropped_users()  Found in ssaf_validate.php
+     *
+     * @return bool True when check is within confidence ratio.  False otherwise.
+     */
     private function check_for_excessive_dropped_users() {
         $is_validated = true;
         $invalid_courses = array(); // intentional local array
@@ -280,10 +327,10 @@ class submitty_student_auto_feed {
             array_unshift($invalid_courses, array('course' => "COURSE", 'diff' => "DIFF", 'ratio' => "RATIO")); // Header
             foreach ($invalid_courses as $invalid_course) {
                 $msg .= "    " .
-                        str_pad($invalid_course['course'], 18, " ", STR_PAD_RIGHT) .
-                        str_pad($invalid_course['diff'], 6, " ", STR_PAD_LEFT) .
-                        str_pad($invalid_course['ratio'], 8, " ", STR_PAD_LEFT) .
-                        PHP_EOL;
+                    str_pad($invalid_course['course'], 18, " ", STR_PAD_RIGHT) .
+                    str_pad($invalid_course['diff'], 6, " ", STR_PAD_LEFT) .
+                    str_pad($invalid_course['ratio'], 8, " ", STR_PAD_LEFT) .
+                    PHP_EOL;
             }
             $msg .= "  No upsert performed on any/all courses in Submitty due to suspicious data sheet.";
 

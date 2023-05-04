@@ -48,10 +48,6 @@ class validate {
         case $num_fields === $validate_num_fields:
             self::$error = "Row {$row_num} has {$num_fields} columns.  {$validate_num_fields} expected.";
             return false;
-        // Check term code (skips when set to null).
-        case is_null(EXPECTED_TERM_CODE) ? true : $row[COLUMN_TERM_CODE] === EXPECTED_TERM_CODE:
-            self::$error = "Row {$row_num} failed validation for unexpected term code \"{$row[COLUMN_TERM_CODE]}\".";
-            return false;
         // User ID must contain only alpha characters, numbers, underscore, hyphen, and period.
         case boolval(preg_match("/^[a-z0-9_\-\.]+$/i", $row[COLUMN_USER_ID])):
             self::$error = "Row {$row_num} failed user ID validation \"{$row[COLUMN_USER_ID]}\".";
