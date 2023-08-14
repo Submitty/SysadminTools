@@ -21,19 +21,19 @@ class sql {
     public const GET_COURSES = <<<SQL
 SELECT course
 FROM courses
-WHERE semester=$1
+WHERE term=$1
 AND status=1
 SQL;
 
     public const GET_MAPPED_COURSES = <<<SQL
 SELECT course, registration_section, mapped_course, mapped_section
 FROM mapped_courses
-WHERE semester=$1
+WHERE term=$1
 SQL;
 
     public const GET_COURSE_ENROLLMENT_COUNT = <<<SQL
 SELECT count(*) AS num_students FROM courses_users
-WHERE semester=$1
+WHERE term=$1
 AND course=$2
 AND user_group=4
 AND registration_section IS NOT NULL
@@ -72,7 +72,7 @@ SQL;
     // UPSERT courses_users table
     public const UPSERT_COURSES_USERS = <<<SQL
 INSERT INTO courses_users (
-    semester,
+    term,
     course,
     user_id,
     user_group,
@@ -80,7 +80,7 @@ INSERT INTO courses_users (
     registration_type,
     manual_registration
 ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT (semester, course, user_id) DO UPDATE
+ON CONFLICT (term, course, user_id) DO UPDATE
 SET registration_section=
         CASE WHEN courses_users.user_group=4
             AND courses_users.manual_registration=FALSE
@@ -98,7 +98,7 @@ SQL;
     // INSERT courses_registration_sections table
     public const INSERT_REG_SECTION = <<<SQL
 INSERT INTO courses_registration_sections (
-    semester,
+    term,
     course,
     registration_section_id,
     course_section_id
@@ -135,12 +135,12 @@ FROM (
     LEFT OUTER JOIN tmp_enrolled
     ON courses_users.user_id=tmp_enrolled.user_id
     WHERE tmp_enrolled.user_id IS NULL
-    AND courses_users.semester=$1
+    AND courses_users.term=$1
     AND courses_users.course=$2
     AND courses_users.user_group=4
 ) AS dropped
 WHERE courses_users.user_id=dropped.user_id
-AND courses_users.semester=$1
+AND courses_users.term=$1
 AND courses_users.course=$2
 AND courses_users.user_group=4
 AND courses_users.manual_registration=FALSE

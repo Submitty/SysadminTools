@@ -84,7 +84,7 @@ class registration_section_resync {
 		//Loop through academic terms
 		foreach (self::$academic_terms as $term) {
 			//Get courses list for $term
-			$res = pg_query_params(self::$db_conn['master'], "SELECT course FROM courses WHERE semester = $1", array($term));
+			$res = pg_query_params(self::$db_conn['master'], "SELECT course FROM courses WHERE term = $1", array($term));
 			if ($res === false) {
 				exit(sprintf("Error reading course list for %s.%s", $term, PHP_EOL));
 			}
@@ -107,7 +107,7 @@ class registration_section_resync {
 				}
 
 				//First retrieve registration sections in master DB
-				$res = pg_query_params(self::$db_conn['master'], "SELECT registration_section_id FROM courses_registration_sections WHERE semester=$1 AND course=$2", array($term, $course));
+				$res = pg_query_params(self::$db_conn['master'], "SELECT registration_section_id FROM courses_registration_sections WHERE term=$1 AND course=$2", array($term, $course));
 				if ($res === false) {
 					fprintf(STDERR, "Error reading registration sections from master DB: %s %s.%sSkipping %s %s.%s", $term, $course, PHP_EOL, $term, $course, PHP_EOL);
 					$this->close_db_conn('course');
@@ -135,7 +135,7 @@ class registration_section_resync {
 
 				//INSERT $sync_list to master DB, ON CONFLICT DO NOTHING (prevents potential PK violations).  We're using DB schema trigger to complete resync.
 				foreach($sync_list as $section) {
-					$res = pg_query_params(self::$db_conn['master'], "INSERT INTO courses_registration_sections (semester, course, registration_section_id) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT courses_registration_sections_pkey DO UPDATE SET semester=$1, course=$2, registration_section_id=$3", array($term, $course, $section));
+					$res = pg_query_params(self::$db_conn['master'], "INSERT INTO courses_registration_sections (term, course, registration_section_id) VALUES ($1, $2, $3) ON CONFLICT ON CONSTRAINT courses_registration_sections_pkey DO UPDATE SET term=$1, course=$2, registration_section_id=$3", array($term, $course, $section));
 					if ($res === false) {
 						fprintf(STDERR, "Error during re-sync procedure: %s %s section %s.%s.This section could not be synced.%s", $term, $course, $section, PHP_EOL, PHP_EOL);
 						$this->close_db_conn('course');

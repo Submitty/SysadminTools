@@ -132,7 +132,7 @@ class make_accounts {
 			self::$db_query = <<<SQL
 SELECT DISTINCT user_id
 FROM courses_users
-WHERE semester=$1
+WHERE term=$1
 SQL;
 			self::$workflow_function = 'add_user';
             break;
@@ -141,7 +141,7 @@ SQL;
         	self::$db_query = <<<SQL
 SELECT DISTINCT cu.user_id
 FROM courses_users as cu
-LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semester
+LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.term=c.term
 WHERE cu.user_group=1 OR (cu.user_group<>1 AND c.status=1)
 SQL;
 			self::$workflow_function = 'add_user';
@@ -163,7 +163,7 @@ SQL;
 			self::$db_query = <<<SQL
 SELECT DISTINCT cu.user_id
 FROM courses_users as cu
-LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.semester=c.semester
+LEFT OUTER JOIN courses as c ON cu.course=c.course AND cu.term=c.term
 WHERE cu.user_group<>1 AND c.status<>1
 SQL;
 			self::$workflow_function = 'remove_user';
