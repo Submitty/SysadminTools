@@ -147,7 +147,7 @@ class db {
         }
 
         // Undergraduate courses from DB.
-        $sql = "SELECT course FROM courses WHERE semester=$1 AND status=1";
+        $sql = "SELECT course FROM courses WHERE term=$1 AND status=1";
         $params = array($term);
         $res = pg_query_params(self::$db, $sql, $params);
         if ($res === false)
@@ -170,7 +170,7 @@ class db {
         }
 
         // mapped courses from DB
-        $sql = "SELECT course, mapped_course FROM mapped_courses WHERE semester=$1";
+        $sql = "SELECT course, mapped_course FROM mapped_courses WHERE term=$1";
         $params = array($term);
         $res = pg_query_params(self::$db, $sql, $params);
         if ($res === false) {
@@ -206,7 +206,7 @@ class db {
             $grad_course = array_search($course, $mapped_courses);
             if ($grad_course === false) {
                 // COURSE HAS NO GRAD SECTION (not mapped).
-                $sql = "SELECT COUNT(*) FROM courses_users WHERE semester=$1 AND course=$2 AND user_group=4 AND registration_section IS NOT NULL";
+                $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section IS NOT NULL";
                 $params = array($term, $course);
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
@@ -214,14 +214,14 @@ class db {
                 $course_enrollments[$course] = (int) pg_fetch_result($res, 0);
 
                 // Get manual flag count
-                $sql = "SELECT COUNT(*) FROM courses_users WHERE semester=$1 AND course=$2 AND user_group=4 AND registration_section IS NOT NULL AND manual_registration=TRUE";
+                $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section IS NOT NULL AND manual_registration=TRUE";
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
                     die("Failed to lookup counts with manual flag set for {$course}\n");
                 $manual_flags[$course] = (int) pg_fetch_result($res, 0);
             } else {
                 // UNDERGRADUATE SECTION
-                $sql = "SELECT COUNT(*) FROM courses_users WHERE semester=$1 AND course=$2 AND user_group=4 AND registration_section='1'";
+                $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='1'";
                 $params = array($term, $course);
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
@@ -229,21 +229,21 @@ class db {
                 $course_enrollments[$course] = (int) pg_fetch_result($res, 0);
 
                 // Get manual flag count
-                $sql = "SELECT COUNT(*) FROM courses_users WHERE semester=$1 AND course=$2 AND user_group=4 AND registration_section='1' AND manual_registration=TRUE";
+                $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='1' AND manual_registration=TRUE";
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
                     die("Failed to lookup counts with manual flag set for {$course} (undergrads)\n");
                 $manual_flags[$course] = (int) pg_fetch_result($res, 0);
 
                 // GRADUATE SECTION
-                $sql = "SELECT COUNT(*) FROM courses_users WHERE semester=$1 AND course=$2 AND user_group=4 AND registration_section='2'";
+                $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='2'";
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
                     die("Failed to lookup enrollments for {$grad_course}\n");
                 $course_enrollments[$grad_course] = (int) pg_fetch_result($res, 0);
 
                 // Get manual flag count
-                $sql = "SELECT COUNT(*) FROM courses_users WHERE semester=$1 AND course=$2 AND user_group=4 AND registration_section='2' AND manual_registration=TRUE";
+                $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='2' AND manual_registration=TRUE";
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
                     die("Failed to lookup counts with manual flag set for {$course} (grads)\n");

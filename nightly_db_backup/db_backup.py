@@ -131,7 +131,7 @@ def main():
 
 	# GET ACTIVE COURSES FROM 'MASTER' DB
 	try:
-		sql = "select course from courses where semester='{}'".format(semester)
+		sql = "select course from courses where term='{}'".format(semester)
 		# psql postgresql://user:password@host/dbname?sslmode=prefer -c "COPY (SQL code) TO STDOUT"
 		process = "psql postgresql://{}:{}@{}/submitty?sslmode=prefer -c \"COPY ({}) TO STDOUT\"".format(DB_USER, DB_PASS, DB_HOST, sql)
 		result = list(subprocess.check_output(process, shell=True).decode('utf-8').split(os.linesep))[:-1]
