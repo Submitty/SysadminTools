@@ -193,5 +193,10 @@ define('ADD_DROP_FROM_EMAIL', "sysadmins@lists.myuniversity.edu");
 // 'tmp' or the current semester code.
 define('ADD_DROP_FILES_PATH', "path/to/reports/");
 
+/* CRN Copymap ------------------------------------------------------------- */
+
+// Where is the crn copymap CSV located.  Set to NULL is this is not used.
+define('CRN_COPYMAP_FILE', "path/to/csv");
+
 //EOF
 ?>

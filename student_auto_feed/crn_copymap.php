@@ -1,8 +1,13 @@
 #!/usr/bin/env php
 <?php
+require __DIR__ . "/config.php";
 
 if (php_sapi_name() !== "cli") {
-    die("This is a command line tool.");
+    die("This is a command line tool.\n");
+}
+
+if (is_null(CRN_COPYMAP_FILE)) {
+    die("CRN_COPYMAP_FILE is null.  Check config.php.\n");
 }
 
 $proc = new crn_copy();
@@ -41,9 +46,13 @@ class crn_copy {
         $dest_course = $args['dest']['course'][0];
         $dest_sections = $args['dest']['sections'][0];
 
-        $fh = fopen("crn_copymap_{$term}.csv", "a");
+        // Insert "_{$term}" right before file extension.
+        // e.g. "/path/to/crn_copymap.csv" for term f23 becomes "/path/to/crn_copymap_f23.csv"
+        $filename = preg_replace("/([^\/]+?)(\.[^\/\.]*)?$/", "$1_{$term}$2", CRN_COPYMAP_FILE, 1);
+
+        $fh = fopen($filename, "a");
         if ($fh === false) {
-            $this->err = "Could not open mappings CSV for writing.\n";
+            $this->err = "Could not open crn copymap file for writing.\n";
             exit(1);
         }
 
@@ -76,7 +85,7 @@ class crn_copy {
 /** class to parse command line arguments */
 class cli {
     /** @var string usage help message */
-    private static $help_usage = "Usage: map_crn_copy.php [-h | --help | help] (term) (course-a) (sections) (course-b) (sections)";
+    private static $help_usage = "Usage: map_crn_copy.php [-h | --help | help] (term) (course-a) (sections) (course-b) (sections)\n";
     /** @var string short description help message */
     private static $help_short_desc = "Create duplicate enrollment mapping of courses and semesters.\n";
     /** @var string long description help message */
@@ -92,9 +101,9 @@ class cli {
     -h, --help, help  Show this help message.
     term       Term code of courses and sections being mapped.  Required.
     course-a   Original course
-    sections   Section list, or \"all\" of preceding course
+    sections   Section list, or "all" of preceding course
     course-b   Course being copied to
-    sections   For course-b, this can be ommited when course-a sections is \"all\"
+    sections   For course-b, this can be ommited when course-a sections is "all"
     ARGS_LIST;
 
     /**
@@ -113,8 +122,10 @@ class cli {
         case $argc > 1 && ($argv[1] === "-h" || $argv[1] === "--help" || $argv[1] === "help"):
             self::print_help();
             exit;
-        // Validate CLI arguments.  Test is invalid when case condition is true.
+        // Validate CLI arguments.  Something is wrong (invalid) when a case condition is true.
         case $argc < 5 || $argc > 6:
+        case $argv[3] === "all" && (array_key_exists(5, $argv) && $argv[5] !== "all"):
+        case $argv[3] !== "all" && (!array_key_exists(5, $argv) || $argv[5] === "all"):
         case preg_match("/^[a-z][\d]{2}$/", $argv[1], $matches['term']) !== 1:
         case preg_match("/^[\w\d\-]+$/", $argv[2], $matches['source']['course']) !== 1:
         case preg_match("/^\d+(?:(?:,|\-)\d+)*$|^all$/", $argv[3], $matches['source']['sections']) !== 1:
@@ -131,11 +142,10 @@ class cli {
 
     /** Print complete help */
     private static function print_help() {
-        $msg  = self::$help_usage;
-        $msg .= self::$help_short_desc;
-        $msg .= self::$help_long_desc;
-        $msg .= self::$help_args_list;
-        $msg .= PHP_EOL;
+        $msg  = self::$help_usage . PHP_EOL;
+        $msg .= self::$help_short_desc . PHP_EOL;
+        $msg .= self::$help_long_desc . PHP_EOL;
+        $msg .= self::$help_args_list . PHP_EOL;
         print $msg;
     }
 

@@ -5,7 +5,7 @@
  *
  * This script will read a student enrollment CSV feed provided by the campus
  * registrar or data warehouse and "upsert" (insert/update) the feed into
- * Submitty's course databases.  Requires PHP 7.1 and pgsql extension.
+ * Submitty's course databases.  Requires PHP 7.3 and pgsql extension.
  *
  * @author Peter Bailie, Rensselaer Polytechnic Institute
  */
@@ -18,7 +18,7 @@ require __DIR__ . "/ssaf_validate.php";
 
 // Important: Make sure we are running from CLI
 if (php_sapi_name() !== "cli") {
-    die("This is a command line tool.");
+    die("This is a command line tool.\n");
 }
 
 $proc = new submitty_student_auto_feed();
@@ -35,6 +35,8 @@ class submitty_student_auto_feed {
     private $course_list;
     /** @var array Describes how courses are mapped from one to another */
     private $mapped_courses;
+    /** @var array Describes courses/sections that are duplicated to other courses/sections */
+    private $crn_copymap;
     /** @var array Courses with invalid data. */
     private $invalid_courses;
     /** @var array All CSV data to be upserted */
@@ -44,6 +46,8 @@ class submitty_student_auto_feed {
 
     /** Init properties.  Open DB connection.  Open CSV file. */
     public function __construct() {
+        $this->log_msg_queue = "";
+
         // Get semester from CLI arguments.
         $opts = cli_args::parse_args();
         if (array_key_exists('l', $opts)) {
@@ -63,8 +67,8 @@ class submitty_student_auto_feed {
             $db_host     = DB_HOST;
         }
 
-        if (!$this->open_csv()) {
-            $this->log_it("Error: Cannot open CSV file");
+        if (!$this->open_data_csv(CSV_FILE)) {
+            // Error is already in log queue.
             exit(1);
         }
 
@@ -88,15 +92,17 @@ class submitty_student_auto_feed {
             exit(1);
         }
 
+        // Get CRN shared courses/sections (when a course/section is copied to another course/section)
+        $this->crn_copymap = $this->read_crn_copymap();
+
         // Init other properties.
         $this->invalid_courses = array();
         $this->data = array();
-        $this->log_msg_queue = "";
     }
 
     public function __destruct() {
         db::close();
-        $this->close_csv();
+        $this->close_data_csv();
 
         //Output logs, if any.
         if ($this->log_msg_queue !== "") {
@@ -126,6 +132,9 @@ class submitty_student_auto_feed {
         case $this->invalidate_courses():
             // Should do nothing when $this->invalid_courses is empty
             $this->log_it("Error when removing data from invalid courses.");
+            break;
+        case $this->process_crn_copymap():
+            // Never returns false, so no error to log.
             break;
         case $this->upsert_data():
             $this->log_it("Error during upsert.");
@@ -169,6 +178,7 @@ class submitty_student_auto_feed {
         while(!feof($this->fh)) {
             // Course is comprised of an alphabetic prefix and a numeric suffix.
             $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
+            $section = $row[COLUMN_SECTION];
 
             // Trim whitespace from all fields in $row.
             array_walk($row, function(&$val, $key) { $val = trim($val); });
@@ -205,13 +215,12 @@ class submitty_student_auto_feed {
                     // There is a problem with $row, so log the problem and skip.
                     $this->invalid_courses[$course] = true;
                     $this->log_it(validate::$error);
-                }
+                } // END if (validate::validate_row())
                 break;
 
             // Check that the $row is associated with a mapped course.
             case array_key_exists($course, $this->mapped_courses):
                 // Also verify that the section is mapped.
-                $section = $row[COLUMN_SECTION];
                 if (array_key_exists($section, $this->mapped_courses[$course])) {
                     $m_course = $this->mapped_courses[$course][$section]['mapped_course'];
                     if (validate::validate_row($row, $row_num)) {
@@ -260,7 +269,7 @@ class submitty_student_auto_feed {
         $this->data = array_filter($this->data, function($course) { return !empty($course); }, 0);
 
         // Most runtime involves the database, so we'll release the CSV now.
-        $this->close_csv();
+        $this->close_data_csv();
 
         // Done.
         return true;
@@ -366,7 +375,7 @@ class submitty_student_auto_feed {
      * Both $this->data and $this->invalid_courses are indexed by course code,
      * so removing course data is trivially accomplished by array_diff_key().
      *
-     * @param string $course Course being removed from process records.
+     * @return bool true upon completion.
      */
     private function invalidate_courses() {
         if (!empty($this->invalid_courses)) {
@@ -384,24 +393,105 @@ class submitty_student_auto_feed {
     }
 
     /**
-     * Open auto feed CSV data file.
+     * Read crn copymap csv into array.
      *
-     * @return boolean Indicates success/failure of opening and locking CSV file.
+     * CRN copymap is a csv that maps what courses/sections are duplicated to
+     * other courses/sections.  This is useful for duplicating enrollments to
+     * "practice" courses (of optional participation) that are not officially
+     * in the school's course catalog.
+     * *** MUST BE RUN AFTER FILLING $this->course_list
+     *
+     * @see CRN_COPYMAP_FILE located in config.php
+     * @see db::get_course_list() located in ssaf_db.php
+     * @return array copymap array, or empty array on copymap file open failure.
      */
-    private function open_csv() {
+    private function read_crn_copymap() {
+        // Skip this function when CRN_COPYMAP_FILE is null
+        if (is_null(CRN_COPYMAP_FILE)) return true;
+
+        // Insert "_{$this->semester}" right before file extension.
+        // e.g. When term is "f23", "/path/to/copymap.csv" becomes "/path/to/copymap_f23.csv"
+        $filename = preg_replace("/([^\/]+?)(\.[^\/\.]*)?$/", "$1_{$this->semester}$2", CRN_COPYMAP_FILE);
+
+        if (!is_file($filename)) {
+            $this->log_it("crn copymap file not found: {$filename}");
+            return array();
+        }
+
+        $fh = fopen($filename, 'r');
+        if ($fh === false) {
+            $this->log_it("Failed to open crn copymap file: {$filename}");
+            return array();
+        }
+
+        // source course  == $row[0]
+        // source section == $row[1]
+        // dest course    == $row[2]
+        // dest section   == $row[3]
+        $arr = array();
+        $row = fgetcsv($fh, 0, ",");
+        while (!feof($fh)) {
+            if (in_array($row[2], $this->course_list, true)) {
+                $arr[$row[0]][$row[1]] = array('course' => $row[2], 'section' => $row[3]);
+            } else {
+                $this->log_it("Duplicated course {$row[2]} not created in Submitty.");
+            }
+            $row = fgetcsv($fh, 0, ",");
+        }
+
+        fclose($fh);
+
+        if (empty($arr)) $this->log_it("No CRN copymap data could be read.");
+        return $arr;
+    }
+
+    private function process_crn_copymap() {
+        if (empty($this->crn_copymap)) return true;
+
+        foreach($this->data as $course=>$course_data) {
+            if (array_key_exists($course, $this->crn_copymap)) {
+                foreach($course_data as $row) {
+                    $section = $row[COLUMN_SECTION];
+                    if (array_key_exists('all', $this->crn_copymap[$course])) {
+                        $copymap_course = $this->crn_copymap[$course]['all']['course'];
+                        $this->data[$copymap_course][] = $row;
+                    } elseif (array_key_exists($section, $this->crn_copymap[$course])) {
+                        $copymap_course = $this->crn_copymap[$course][$section]['course'];
+                        $copymap_section = $this->crn_copymap[$course][$section]['section'];
+                        $this->data[$copymap_course][] = $row;
+                        $key = array_key_last($this->data[$copymap_course]);
+                        $this->data[$copymap_course][$key][COLUMN_SECTION] = $copymap_section;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Open a CSV file.
+     *
+     * Multiple files may be opened as a stack of file handles.
+     *
+     * @return boolean|int False when file couldn't be opened, or Int $key of the opened file handle.
+     */
+    private function open_data_csv() {
         $this->fh = fopen(CSV_FILE, "r");
         if ($this->fh === false) {
-            $this->log_it("Could not open CSV file.");
+            $this->log_it(sprintf("Could not open file: %s", CSV_FILE));
             return false;
         }
 
         return true;
     }
 
-    /** Close CSV file */
-    private function close_csv() {
+    /** Close most recent opened CSV file */
+    private function close_data_csv() {
         if (is_resource($this->fh) && get_resource_type($this->fh) === "stream") {
             fclose($this->fh);
+        } else {
+            $this->fh = null;
         }
     }
 
