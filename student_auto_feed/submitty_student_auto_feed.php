@@ -445,22 +445,39 @@ class submitty_student_auto_feed {
         return $arr;
     }
 
+    /**
+     * Duplicate course enrollment data based on crn copymap.
+     *
+     * This should be run after all validation and error checks have been
+     * performed on enrollment data.  This function will duplicate
+     * enrollment data as shown in $this->crn_copymap array.
+     *
+     * @return bool always true.
+     */
     private function process_crn_copymap() {
+        // Skip when there is no crn copymap data. i.e. There are no courses being duplicated.
         if (empty($this->crn_copymap)) return true;
 
         foreach($this->data as $course=>$course_data) {
+            // Is the course being duplicated?
             if (array_key_exists($course, $this->crn_copymap)) {
                 foreach($course_data as $row) {
                     $section = $row[COLUMN_SECTION];
+                    // What section(s) are being duplicated?
                     if (array_key_exists('all', $this->crn_copymap[$course])) {
                         $copymap_course = $this->crn_copymap[$course]['all']['course'];
                         $this->data[$copymap_course][] = $row;
+                        $key = array_key_last($this->data[$copymap_course]);
+                        // We are not duplicating the CRN data column.
+                        $this->data[$copymap_course][$key][COLUMN_REG_ID] = "";
                     } elseif (array_key_exists($section, $this->crn_copymap[$course])) {
                         $copymap_course = $this->crn_copymap[$course][$section]['course'];
                         $copymap_section = $this->crn_copymap[$course][$section]['section'];
                         $this->data[$copymap_course][] = $row;
                         $key = array_key_last($this->data[$copymap_course]);
                         $this->data[$copymap_course][$key][COLUMN_SECTION] = $copymap_section;
+                        // We are not duplicating the CRN data column.
+                        $this->data[$copymap_course][$key][COLUMN_REG_ID] = "";
                     }
                 }
             }
