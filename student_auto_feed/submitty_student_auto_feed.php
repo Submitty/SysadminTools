@@ -178,7 +178,6 @@ class submitty_student_auto_feed {
         while(!feof($this->fh)) {
             // Course is comprised of an alphabetic prefix and a numeric suffix.
             $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
-            $section = $row[COLUMN_SECTION];
 
             // Trim whitespace from all fields in $row.
             array_walk($row, function(&$val, $key) { $val = trim($val); });
@@ -221,6 +220,7 @@ class submitty_student_auto_feed {
             // Check that the $row is associated with a mapped course.
             case array_key_exists($course, $this->mapped_courses):
                 // Also verify that the section is mapped.
+                $section = $row[COLUMN_SECTION];
                 if (array_key_exists($section, $this->mapped_courses[$course])) {
                     $m_course = $this->mapped_courses[$course][$section]['mapped_course'];
                     if (validate::validate_row($row, $row_num)) {
