@@ -403,11 +403,11 @@ class submitty_student_auto_feed {
      *
      * @see CRN_COPYMAP_FILE located in config.php
      * @see db::get_course_list() located in ssaf_db.php
-     * @return array copymap array, or empty array on copymap file open failure.
+     * @return array copymap array, or empty array when copymap disabled or copymap file open failure.
      */
     private function read_crn_copymap() {
-        // Skip this function when CRN_COPYMAP_FILE is null
-        if (is_null(CRN_COPYMAP_FILE)) return true;
+        // Skip this function and return empty copymap array when CRN_COPYMAP_FILE is null
+        if (is_null(CRN_COPYMAP_FILE)) return array();
 
         // Insert "_{$this->semester}" right before file extension.
         // e.g. When term is "f23", "/path/to/copymap.csv" becomes "/path/to/copymap_f23.csv"
@@ -456,7 +456,7 @@ class submitty_student_auto_feed {
      */
     private function process_crn_copymap() {
         // Skip when there is no crn copymap data. i.e. There are no courses being duplicated.
-        if (empty($this->crn_copymap)) return true;
+        if (is_null(CRN_COPYMAP_FILE) || empty($this->crn_copymap)) return true;
 
         foreach($this->data as $course=>$course_data) {
             // Is the course being duplicated?
