@@ -1,0 +1,16 @@
+#!/usr/bin/perl
+print" RUN AS ROOT \n";
+
+print "Enter term: ";
+$termr=<>;
+chomp $term;
+print "Enter course: ";
+$course=<>;
+chomp $course;
+print "Enter instructor: ";
+$instructor=<>;
+chomp $instructor;
+
+system "/usr/local/submitty/sbin/create_course.sh $term $course $instructor course_$course\_tas_www";
+system "/usr/local/submitty/sbin/adduser_course.py $instructor $term $course null";
+system "/usr/local/submitty/sbin/adduser_course.py submitty-admin $term $course null";
