@@ -85,7 +85,7 @@ class crn_copy {
 /** class to parse command line arguments */
 class cli {
     /** @var string usage help message */
-    private static $help_usage = "Usage: map_crn_copy.php [-h | --help | help] (term) (course-a) (sections) (course-b) (sections)\n";
+    private static $help_usage = "Usage: crn_copymap.php [-h | --help | help] (term) (course-a) (sections) (course-b) (sections)\n";
     /** @var string short description help message */
     private static $help_short_desc = "Create duplicate enrollment mapping of courses and semesters.\n";
     /** @var string long description help message */
