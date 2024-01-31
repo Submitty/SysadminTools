@@ -1,5 +1,5 @@
 # Submitty Student Auto Feed Script
-Readme last updated Nov 17, 2021
+Readme last updated Sept 1, 2023
 
 This is a code example for any University to use as a basis to have Submitty course's enrollment data added or updated on an automated schedule with a student enrollment CSV datasheet.
 
@@ -134,7 +134,7 @@ the first (prior to autofeed) or second (after auto feed) run.
 
 Second cli parameter is the term code.
 
-For example:  
+For example:
 ```
 $ ./add_drop_report.php 1 f21
 ```
@@ -145,3 +145,29 @@ $ ./add_drop_report.php 2 f21
 ```
 Will invoke the _second_ run to create the report of student enrollments for the
 Fall 2021 term.
+
+## crn_copymap.php
+
+Create a mapping of CRNs (course, term) that are to be duplicated.  This is
+useful if a professor wishes to have a course enrollment, by section,
+duplicated to another course.  Particularly when the duplicated course has
+no enrollment data provided by IT.
+
+Sections can be a comma separated list, a range denoted by a hyphen, or the
+word "all" for all sections.  Note that "all" sections will copy sections
+respectively.  i.e. section 1 is copied as section 1, section 2 is copied as
+section 2, etc.
+
+### Usage
+```bash
+$ crn_copymap.php (term) (original_course) (original_sections) (copied_course) (copied_sections)
+```
+For example:
+Copy enrollments of term "f23" (fall 2023) of course CSCI 1000,
+sections 1, 3, and 5 through 9 to course CSCI 2000 as sections 2, 4, and 6 through 10
+respectively.
+```bash
+$ crn_copymap.php f23 csci1000 1,3,5-9 csci2000 2,4,6-10
+```
+
+EOF
