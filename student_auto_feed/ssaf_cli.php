@@ -11,13 +11,12 @@ class cli_args {
     private static $help_short_desc = "Read student enrollment CSV and upsert to Submitty database.\n";
     /** @var string argument list help message */
     private static $help_args_list  = <<<HELP
-Arguments:
--h, --help    Show this help message.
--a auth str   Specify 'user:password@server', overriding config.php.  Optional.
--t term code  Term code associated with current student enrollment.  Required.
--l            Send a test message to error log(s) and quit.
-
-HELP;
+    Arguments:
+    -h, --help    Show this help message.
+    -a auth str   Specify 'user:password@server', overriding config.php.  Optional.
+    -t term code  Term code associated with current student enrollment.  Required.
+    -l            Send a test message to error log(s) and quit.\n
+    HELP;
 
     /**
      * Parse command line arguments

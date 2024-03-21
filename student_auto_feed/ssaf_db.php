@@ -248,7 +248,7 @@ class db {
     // PRIVATE STATIC FUNCTIONS ------------------------------------------------
 
     private static function check() : bool {
-        if (!is_resource(self::$db) || pg_connection_status(self::$db) !== PGSQL_CONNECTION_OK) {
+        if (!is_resource(self::$db) && !(self::$db instanceof PgSQL\Connection) || pg_connection_status(self::$db) !== PGSQL_CONNECTION_OK) {
             self::$error = "No DB connection.";
             return false;
         }
