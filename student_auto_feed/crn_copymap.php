@@ -58,7 +58,7 @@ class crn_copy {
 
         $len = count($source_sections);
         for ($i = 0; $i < $len; $i++) {
-            $row = array($source_course, $source_sections[$i], $dest_course, $dest_sections[$i]);
+            $row = [$source_course, $source_sections[$i], $dest_course, $dest_sections[$i]];
             fputcsv($fh, $row, ",");
         }
 
@@ -66,10 +66,10 @@ class crn_copy {
     }
 
     private function get_mappings($sections) {
-        if ($sections === "" || $sections === "all") return array($sections);
+        if ($sections === "" || $sections === "all") return [$sections];
 
         $arr = explode(",", $sections);
-        $expanded = array();
+        $expanded = [];
         foreach($arr as $val) {
             if (preg_match("/(\d+)\-(\d+)/", $val, $matches) === 1) {
                 $expanded = array_merge($expanded, range((int) $matches[1], (int) $matches[2]));
@@ -115,7 +115,7 @@ class cli {
      */
     public static function parse_args() {
         global $argc, $argv;
-        $matches = array();
+        $matches = [];
 
         switch(true) {
         // Check for request for help

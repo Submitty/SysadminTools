@@ -93,8 +93,8 @@ class validate {
     public static function check_for_duplicate_user_ids(array $rows, &$user_ids, &$d_rows) : bool {
         usort($rows, function($a, $b) { return $a[COLUMN_USER_ID] <=> $b[COLUMN_USER_ID]; });
 
-        $user_ids = array();
-        $d_rows = array();
+        $user_ids = [];
+        $d_rows = [];
         $are_all_unique = true;  // Unless proven FALSE
         $length = count($rows);
         for ($i = 1; $i < $length; $i++) {

@@ -4,7 +4,7 @@ namespace ssaf;
 /** class to parse command line arguments */
 class cli_args {
     /** @var array Holds all CLI argument flags and their values */
-    private static $args            = array();
+    private static $args            = [];
     /** @var string usage help message */
     private static $help_usage      = "Usage: submitty_student_auto_feed.php [-h | --help] [-a auth str] (-t term code)\n";
     /** @var string short description help message */
@@ -26,7 +26,7 @@ class cli_args {
      * @return mixed term code as string or boolean false when no term code is present.
      */
     public static function parse_args() {
-        self::$args = getopt('ha:t:l', array('help'));
+        self::$args = getopt('ha:t:l', ['help']);
 
         switch(true) {
         case array_key_exists('h', self::$args):

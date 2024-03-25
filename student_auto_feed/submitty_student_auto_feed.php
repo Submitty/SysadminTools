@@ -96,8 +96,8 @@ class submitty_student_auto_feed {
         $this->crn_copymap = $this->read_crn_copymap();
 
         // Init other properties.
-        $this->invalid_courses = array();
-        $this->data = array();
+        $this->invalid_courses = [];
+        $this->data = [];
     }
 
     public function __destruct() {
@@ -168,10 +168,10 @@ class submitty_student_auto_feed {
         }
 
         $graded_reg_codes = STUDENT_REGISTERED_CODES;
-        $audit_reg_codes = is_null(STUDENT_AUDIT_CODES) ? array() : STUDENT_AUDIT_CODES;
-        $latedrop_reg_codes = is_null(STUDENT_LATEDROP_CODES) ? array() : STUDENT_LATEDROP_CODES;
+        $audit_reg_codes = is_null(STUDENT_AUDIT_CODES) ? [] : STUDENT_AUDIT_CODES;
+        $latedrop_reg_codes = is_null(STUDENT_LATEDROP_CODES) ? [] : STUDENT_LATEDROP_CODES;
         $all_valid_reg_codes = array_merge($graded_reg_codes, $audit_reg_codes, $latedrop_reg_codes);
-        $unexpected_term_codes = array();
+        $unexpected_term_codes = [];
 
         // Read and assign csv rows into $this->data array
         $row = fgetcsv($this->fh, 0, CSV_DELIM_CHAR);
@@ -320,12 +320,12 @@ class submitty_student_auto_feed {
      */
     private function check_for_excessive_dropped_users() {
         $is_validated = true;
-        $invalid_courses = array(); // intentional local array
+        $invalid_courses = []; // intentional local array
         $ratio = 0;
         $diff = 0;
         foreach($this->data as $course => $rows) {
             if (!validate::check_for_excessive_dropped_users($rows, $this->semester, $course, $diff, $ratio)) {
-                $invalid_courses[] = array('course' => $course, 'diff' => $diff, 'ratio' => round(abs($ratio), 3));
+                $invalid_courses[] = ['course' => $course, 'diff' => $diff, 'ratio' => round(abs($ratio), 3)];
                 $is_validated = false;
             }
         }
@@ -333,7 +333,7 @@ class submitty_student_auto_feed {
         if (!empty($invalid_courses)) {
             usort($invalid_courses, function($a, $b) { return $a['course'] <=> $b['course']; });
             $msg = "The following course(s) have an excessive ratio of dropped students.\n  Stats show mapped courses combined in base courses.\n";
-            array_unshift($invalid_courses, array('course' => "COURSE", 'diff' => "DIFF", 'ratio' => "RATIO")); // Header
+            array_unshift($invalid_courses, ['course' => "COURSE", 'diff' => "DIFF", 'ratio' => "RATIO"]); // Header
             foreach ($invalid_courses as $invalid_course) {
                 $msg .= "    " .
                     str_pad($invalid_course['course'], 18, " ", STR_PAD_RIGHT) .
@@ -407,7 +407,7 @@ class submitty_student_auto_feed {
      */
     private function read_crn_copymap() {
         // Skip this function and return empty copymap array when CRN_COPYMAP_FILE is null
-        if (is_null(CRN_COPYMAP_FILE)) return array();
+        if (is_null(CRN_COPYMAP_FILE)) return [];
 
         // Insert "_{$this->semester}" right before file extension.
         // e.g. When term is "f23", "/path/to/copymap.csv" becomes "/path/to/copymap_f23.csv"
@@ -415,24 +415,24 @@ class submitty_student_auto_feed {
 
         if (!is_file($filename)) {
             $this->log_it("crn copymap file not found: {$filename}");
-            return array();
+            return [];
         }
 
         $fh = fopen($filename, 'r');
         if ($fh === false) {
             $this->log_it("Failed to open crn copymap file: {$filename}");
-            return array();
+            return [];
         }
 
         // source course  == $row[0]
         // source section == $row[1]
         // dest course    == $row[2]
         // dest section   == $row[3]
-        $arr = array();
+        $arr = [];
         $row = fgetcsv($fh, 0, ",");
         while (!feof($fh)) {
             if (in_array($row[2], $this->course_list, true)) {
-                $arr[$row[0]][$row[1]] = array('course' => $row[2], 'section' => $row[3]);
+                $arr[$row[0]][$row[1]] = ['course' => $row[2], 'section' => $row[3]];
             } else {
                 $this->log_it("Duplicated course {$row[2]} not created in Submitty.");
             }
