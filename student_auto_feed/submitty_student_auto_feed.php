@@ -52,7 +52,8 @@ class submitty_student_auto_feed {
         $opts = cli_args::parse_args();
         if (array_key_exists('l', $opts)) {
             $this->log_it("Logging test requested.  There is no actual error to report.");
-            exit;
+            $this->shutdown();
+            exit(0);
         }
         $this->semester = $opts['t'];
 
@@ -69,11 +70,13 @@ class submitty_student_auto_feed {
 
         if (!$this->open_data_csv(CSV_FILE)) {
             // Error is already in log queue.
+            $this->shutdown();
             exit(1);
         }
 
         if (!db::open($db_host, $db_user, $db_password)) {
-            $this->log_it("Error: Cannot connect to Submitty DB");
+            $this->log_it("Error: Cannot connect to Submitty DB.");
+            $this->shutdown();
             exit(1);
         }
 
@@ -82,6 +85,7 @@ class submitty_student_auto_feed {
         $this->course_list = db::get_course_list($this->semester, $error);
         if ($this->course_list === false) {
             $this->log_it($error);
+            $this->shutdown();
             exit(1);
         }
 
@@ -89,6 +93,7 @@ class submitty_student_auto_feed {
         $this->mapped_courses = db::get_mapped_courses($this->semester, $error);
         if ($this->mapped_courses === false) {
             $this->log_it($error);
+            $this->shutdown();
             exit(1);
         }
 
@@ -101,6 +106,10 @@ class submitty_student_auto_feed {
     }
 
     public function __destruct() {
+        $this->shutdown();
+    }
+
+    private function shutdown() {
         db::close();
         $this->close_data_csv();
 
