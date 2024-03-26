@@ -126,13 +126,16 @@ class db {
     }
 
     /**
-     * Verify that DB connection resource is OK
+     * Verify that DB connection resource/instance is OK
+     *
+     * PHP <  8.1: self::$db is a resource
+     * PHP >= 8.1: seld::$db is an instanceof \PgSql\Connection
      *
      * @access private
      * @return bool true when DB connection resource is OK, false otherwise.
      */
     private static function check() {
-        return is_resource(self::$db) && pg_connection_status(self::$db) === PGSQL_CONNECTION_OK;
+        return (is_resource(self::$db) || self::$db instanceof \PgSql\Connection) && pg_connection_status(self::$db) === PGSQL_CONNECTION_OK;
     }
 
     /**
@@ -305,7 +308,7 @@ class reports {
 
         unlink($tmp_path . $tmp_file);  // remove tmp file.
         array_walk($csv, 'callbacks::str_getcsv_cb');
-        // return ['course' => enrollment].  e.g. ['csci1000' => 100]
+        // return array of ['course' => enrollment].  e.g. ['csci1000' => 100]
         return array_combine(array_column($csv, 0), array_column($csv, 1));
     }
 

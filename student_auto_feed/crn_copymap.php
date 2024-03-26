@@ -103,7 +103,7 @@ class cli {
     course-a   Original course
     sections   Section list, or "all" of preceding course
     course-b   Course being copied to
-    sections   For course-b, this can be ommited when course-a sections is "all"
+    sections   For course-b, this can be ommited when course-a sections is "all"\n
     ARGS_LIST;
 
     /**
@@ -130,7 +130,7 @@ class cli {
         case preg_match("/^[\w\d\-]+$/", $argv[2], $matches['source']['course']) !== 1:
         case preg_match("/^\d+(?:(?:,|\-)\d+)*$|^all$/", $argv[3], $matches['source']['sections']) !== 1:
         case preg_match("/^[\w\d\-]+$/", $argv[4], $matches['dest']['course']) !== 1:
-        case preg_match("/^\d+(?:(?:,|\-)\d+)*$|^(?:all)?$/", $argv[5], $matches['dest']['sections']) !== 1:
+        case preg_match("/^\d+(?:(?:,|\-)\d+)*$|^(?:all)?$/", $argv[5] ?? "", $matches['dest']['sections']) !== 1:
             self::print_usage();
             exit;
         }
