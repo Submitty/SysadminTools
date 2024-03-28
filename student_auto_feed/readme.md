@@ -10,7 +10,7 @@ policies and practices.__
 
 Detailed instructions can be found at [http://submitty.org/sysadmin/student\_auto\_feed](http://submitty.org/sysadmin/student_auto_feed)
 
-Requirements: PHP 7.1 or higher with pgsql extension.  `imap_remote.php` also
+Requirements: PHP 7.3 or higher with pgsql extension.  `imap_remote.php` also
 requires the imap extension.  This system is intended to be platform agnostic,
 but has been developed and tested with Ubuntu Linux.
 
