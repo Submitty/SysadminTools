@@ -100,10 +100,12 @@ class cli {
     Arguments:
     -h, --help, help  Show this help message.
     term       Term code of courses and sections being mapped.  Required.
-    course-a   Original course
-    sections   Section list, or "all" of preceding course
-    course-b   Course being copied to
-    sections   For course-b, this can be ommited when course-a sections is "all"\n
+    course-a   Original course.
+    sections   Section list or "all" for course-a.
+    course-b   Course being copied to.
+    sections   Section list or "all" for course-b.
+
+    Course-b sections can be ommited when course-a sections is "all"\n
     ARGS_LIST;
 
     /**
