@@ -127,9 +127,6 @@ define('HEADER_ROW_EXISTS', true);
 //Set to true, if Submitty is using SAML for authentication.
 define('PROCESS_SAML', true);
 
-//Allows "\r" EOL encoding.  This is rare but exists (e.g. Excel for Macintosh).
-ini_set('auto_detect_line_endings', true);
-
 /* DATA SOURCING --------------------------------------------------------------
  * The Student Autofeed provides helper scripts to retrieve the CSV file for
  * processing.  Shell script ssaf.sh is used to invoke one of the helper
