@@ -247,6 +247,14 @@ class db {
 
     // PRIVATE STATIC FUNCTIONS ------------------------------------------------
 
+    /**
+     * Verify that DB connection resource/instance is OK
+     *
+     * PHP <  8.1: self::$db is a resource
+     * PHP >= 8.1: self::$db is an instanceof \PgSql\Connection
+     *
+     * @return bool true when DB connection resource/instance is OK, false otherwise.
+     */
     private static function check() : bool {
         if ((!is_resource(self::$db) && !(self::$db instanceof \PgSql\Connection)) || pg_connection_status(self::$db) !== PGSQL_CONNECTION_OK) {
             self::$error = "No DB connection.";
