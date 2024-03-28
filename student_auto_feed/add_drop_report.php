@@ -324,9 +324,11 @@ class reports {
         // Compile stats
         $date = date("F j, Y");
         $time = date("g:i A");
-        $report  = "Student autofeed counts report for {$date} at {$time}\n";
-        $report .= "NOTE: Difference and ratio do not account for the manual flag.\n";
-        $report .= "COURSE        YESTERDAY  TODAY  MANUAL  DIFFERENCE    RATIO\n";
+        $report  = <<<HEADING
+        Student autofeed counts report for {$date} at {$time}
+        NOTE: Difference and ratio do not account for the manual flag.
+        COURSE        YESTERDAY  TODAY  MANUAL  DIFFERENCE    RATIO\n
+        HEADING;
 
         foreach ($course_enrollments as $course=>$course_enrollment) {
             // Calculate data
