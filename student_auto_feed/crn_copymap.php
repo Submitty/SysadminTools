@@ -58,7 +58,7 @@ class crn_copy {
 
         $len = count($source_sections);
         for ($i = 0; $i < $len; $i++) {
-            $row = array($source_course, $source_sections[$i], $dest_course, $dest_sections[$i]);
+            $row = [$source_course, $source_sections[$i], $dest_course, $dest_sections[$i]];
             fputcsv($fh, $row, ",");
         }
 
@@ -66,10 +66,10 @@ class crn_copy {
     }
 
     private function get_mappings($sections) {
-        if ($sections === "" || $sections === "all") return array($sections);
+        if ($sections === "" || $sections === "all") return [$sections];
 
         $arr = explode(",", $sections);
-        $expanded = array();
+        $expanded = [];
         foreach($arr as $val) {
             if (preg_match("/(\d+)\-(\d+)/", $val, $matches) === 1) {
                 $expanded = array_merge($expanded, range((int) $matches[1], (int) $matches[2]));
@@ -100,10 +100,12 @@ class cli {
     Arguments:
     -h, --help, help  Show this help message.
     term       Term code of courses and sections being mapped.  Required.
-    course-a   Original course
-    sections   Section list, or "all" of preceding course
-    course-b   Course being copied to
-    sections   For course-b, this can be ommited when course-a sections is "all"
+    course-a   Original course.
+    sections   Section list or "all" for course-a.
+    course-b   Course being copied to.
+    sections   Section list or "all" for course-b.
+
+    Course-b sections can be ommited when course-a sections is "all"\n
     ARGS_LIST;
 
     /**
@@ -115,7 +117,7 @@ class cli {
      */
     public static function parse_args() {
         global $argc, $argv;
-        $matches = array();
+        $matches = [];
 
         switch(true) {
         // Check for request for help
@@ -130,7 +132,7 @@ class cli {
         case preg_match("/^[\w\d\-]+$/", $argv[2], $matches['source']['course']) !== 1:
         case preg_match("/^\d+(?:(?:,|\-)\d+)*$|^all$/", $argv[3], $matches['source']['sections']) !== 1:
         case preg_match("/^[\w\d\-]+$/", $argv[4], $matches['dest']['course']) !== 1:
-        case preg_match("/^\d+(?:(?:,|\-)\d+)*$|^(?:all)?$/", $argv[5], $matches['dest']['sections']) !== 1:
+        case preg_match("/^\d+(?:(?:,|\-)\d+)*$|^(?:all)?$/", $argv[5] ?? "", $matches['dest']['sections']) !== 1:
             self::print_usage();
             exit;
         }

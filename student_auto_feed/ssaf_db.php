@@ -82,15 +82,15 @@ class db {
 
         // Describe how auto-feed data is translated by mappings.
         // There are no mappings when $result is null.
-        $mappings = array();
+        $mappings = [];
         if (!is_null($results)) {
             foreach ($results as $row) {
                 $course = $row['course'];
                 $section = $row['registration_section'];
-                $mappings[$course][$section] = array(
+                $mappings[$course][$section] = [
                     'mapped_course'  => $row['mapped_course'],
                     'mapped_section' => $row['mapped_section']
-                );
+                ];
             }
         }
 
@@ -110,7 +110,7 @@ class db {
             return false;
         }
 
-        $results = self::run_query(sql::GET_COURSE_ENROLLMENT_COUNT, array($semester, $course));
+        $results = self::run_query(sql::GET_COURSE_ENROLLMENT_COUNT, [$semester, $course]);
         if ($results === false) {
             self::$error .= "Error while retrieving course enrollment counts.";
             return false;
@@ -166,14 +166,14 @@ class db {
 
         // Do upsert of course enrollment data.
         foreach($rows as $row) {
-            $users_params = array(
+            $users_params = [
                 $row[COLUMN_USER_ID],
                 $row[COLUMN_NUMERIC_ID],
                 $row[COLUMN_FIRSTNAME],
                 $row[COLUMN_LASTNAME],
                 $row[COLUMN_PREFERREDNAME],
                 $row[COLUMN_EMAIL]
-            );
+            ];
 
             // Determine registration type for courses_users table
             // Registration type code has already been validated by now.
@@ -189,7 +189,7 @@ class db {
                 break;
             }
 
-            $courses_users_params = array(
+            $courses_users_params = [
                 $semester,
                 $course,
                 $row[COLUMN_USER_ID],
@@ -197,11 +197,11 @@ class db {
                 $row[COLUMN_SECTION],
                 $registration_type,
                 "FALSE"
-            );
+            ];
 
-            $reg_sections_params = array($semester, $course, $row[COLUMN_SECTION], $row[COLUMN_REG_ID]);
-            $tmp_table_params = array($row[COLUMN_USER_ID]);
-            $dropped_users_params = array($semester, $course);
+            $reg_sections_params = [$semester, $course, $row[COLUMN_SECTION], $row[COLUMN_REG_ID]];
+            $tmp_table_params = [$row[COLUMN_USER_ID]];
+            $dropped_users_params = [$semester, $course];
 
             // Upsert queries
             // If any query returns false, we need to rollback and bail out.
@@ -247,8 +247,16 @@ class db {
 
     // PRIVATE STATIC FUNCTIONS ------------------------------------------------
 
+    /**
+     * Verify that DB connection resource/instance is OK
+     *
+     * PHP <  8.1: self::$db is a resource
+     * PHP >= 8.1: self::$db is an instanceof \PgSql\Connection
+     *
+     * @return bool true when DB connection resource/instance is OK, false otherwise.
+     */
     private static function check() : bool {
-        if (!is_resource(self::$db) || pg_connection_status(self::$db) !== PGSQL_CONNECTION_OK) {
+        if ((!is_resource(self::$db) && !(self::$db instanceof \PgSql\Connection)) || pg_connection_status(self::$db) !== PGSQL_CONNECTION_OK) {
             self::$error = "No DB connection.";
             return false;
         }
@@ -273,8 +281,8 @@ class db {
             return false;
         }
 
-        if (is_null($params)) $params = array();
-        else if (!is_array($params)) $params = array($params);
+        if (is_null($params)) $params = [];
+        elseif (is_scalar($params)) $params = [$params];
 
         $res = pg_query_params(self::$db, $sql, $params);
         if ($res === false) {

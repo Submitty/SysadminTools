@@ -126,13 +126,16 @@ class db {
     }
 
     /**
-     * Verify that DB connection resource is OK
+     * Verify that DB connection resource/instance is OK
+     *
+     * PHP <  8.1: self::$db is a resource
+     * PHP >= 8.1: self::$db is an instanceof \PgSql\Connection
      *
      * @access private
-     * @return bool true when DB connection resource is OK, false otherwise.
+     * @return bool true when DB connection resource/instance is OK, false otherwise.
      */
     private static function check() {
-        return is_resource(self::$db) && pg_connection_status(self::$db) === PGSQL_CONNECTION_OK;
+        return (is_resource(self::$db) || self::$db instanceof \PgSql\Connection) && pg_connection_status(self::$db) === PGSQL_CONNECTION_OK;
     }
 
     /**
@@ -148,7 +151,7 @@ class db {
 
         // Undergraduate courses from DB.
         $sql = "SELECT course FROM courses WHERE term=$1 AND status=1";
-        $params = array($term);
+        $params = [$term];
         $res = pg_query_params(self::$db, $sql, $params);
         if ($res === false)
             die("Failed to retrieve course list from DB\n");
@@ -171,7 +174,7 @@ class db {
 
         // mapped courses from DB
         $sql = "SELECT course, mapped_course FROM mapped_courses WHERE term=$1";
-        $params = array($term);
+        $params = [$term];
         $res = pg_query_params(self::$db, $sql, $params);
         if ($res === false) {
             die("Failed to retrieve mapped courses from DB\n");
@@ -199,15 +202,15 @@ class db {
             die("Not connected to DB when querying course enrollments\n");
         }
 
-        $course_enrollments = array();
-        $manual_flags = array();
+        $course_enrollments = [];
+        $manual_flags = [];
 
         foreach ($course_list as $course) {
             $grad_course = array_search($course, $mapped_courses);
             if ($grad_course === false) {
                 // COURSE HAS NO GRAD SECTION (not mapped).
                 $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section IS NOT NULL";
-                $params = array($term, $course);
+                $params = [$term, $course];
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
                     die("Failed to lookup enrollments for {$course}\n");
@@ -222,7 +225,7 @@ class db {
             } else {
                 // UNDERGRADUATE SECTION
                 $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='1'";
-                $params = array($term, $course);
+                $params = [$term, $course];
                 $res = pg_query_params(self::$db, $sql, $params);
                 if ($res === false)
                     die("Failed to lookup enrollments for {$course}\n");
@@ -254,7 +257,7 @@ class db {
         // Courses make up array keys.  Sort by courses.
         ksort($course_enrollments);
         ksort($manual_flags);
-        return array($course_enrollments, $manual_flags);
+        return [$course_enrollments, $manual_flags];
     }
 }
 
@@ -282,7 +285,7 @@ class reports {
         }
 
         foreach($course_enrollments as $course=>$num_students) {
-            fputcsv($fh, array($course, $num_students), CSV_DELIM_CHAR);
+            fputcsv($fh, [$course, $num_students], CSV_DELIM_CHAR);
         }
         fclose($fh);
         chmod($tmp_path . $tmp_file, 0660);
@@ -305,7 +308,7 @@ class reports {
 
         unlink($tmp_path . $tmp_file);  // remove tmp file.
         array_walk($csv, 'callbacks::str_getcsv_cb');
-        // return array of array('course' => enrollment).  e.g. ('csci1000' => 100)
+        // return array of ['course' => enrollment].  e.g. ['csci1000' => 100]
         return array_combine(array_column($csv, 0), array_column($csv, 1));
     }
 
@@ -321,9 +324,11 @@ class reports {
         // Compile stats
         $date = date("F j, Y");
         $time = date("g:i A");
-        $report  = "Student autofeed counts report for {$date} at {$time}\n";
-        $report .= "NOTE: Difference and ratio do not account for the manual flag.\n";
-        $report .= "COURSE        YESTERDAY  TODAY  MANUAL  DIFFERENCE    RATIO\n";
+        $report  = <<<HEADING
+        Student autofeed counts report for {$date} at {$time}
+        NOTE: Difference and ratio do not account for the manual flag.
+        COURSE        YESTERDAY  TODAY  MANUAL  DIFFERENCE    RATIO\n
+        HEADING;
 
         foreach ($course_enrollments as $course=>$course_enrollment) {
             // Calculate data
@@ -363,7 +368,7 @@ class reports {
             $from = ADD_DROP_FROM_EMAIL;
             $subject = "Submitty Autofeed Add/Drop Report For {$date}";
             $report = str_replace("\n", "\r\n", $report); // needed for email formatting
-            $is_sent = mail($to, $subject, $report, array('from' => $from));
+            $is_sent = mail($to, $subject, $report, ['from' => $from]);
             if (!$is_sent) {
                 $report = str_replace("\r\n", "\n", $report); // revert back since not being emailed.
                 fprintf(STDERR, "Add/Drop report could not be emailed.\n%s", $report);

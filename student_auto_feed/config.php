@@ -5,7 +5,7 @@
  * config.php script used by submitty_student_auto_feed
  * By Peter Bailie, Systems Programmer (RPI dept of computer science)
  *
- * Requires minimum PHP version 7.1 with pgsql extension.
+ * Requires minimum PHP version 7.3 with pgsql extension.
  *
  * Configuration of submitty_student_auto_feed is structured through a series
  * of named constants.
@@ -126,9 +126,6 @@ define('HEADER_ROW_EXISTS', true);
 
 //Set to true, if Submitty is using SAML for authentication.
 define('PROCESS_SAML', true);
-
-//Allows "\r" EOL encoding.  This is rare but exists (e.g. Excel for Macintosh).
-ini_set('auto_detect_line_endings', true);
 
 /* DATA SOURCING --------------------------------------------------------------
  * The Student Autofeed provides helper scripts to retrieve the CSV file for
