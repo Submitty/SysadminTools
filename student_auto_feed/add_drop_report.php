@@ -80,9 +80,10 @@ class add_drop_report {
             $enrollments = db::count_enrollments($this->term, $courses, $mapped_courses);
             $course_enrollments = $enrollments[0];
             $manual_flags = $enrollments[1];
+            $withdrawn = $enrollments[2];
             // -----------------------------------------------------------------
             $prev_course_enrollments = reports::read_temp_csv();
-            $report = reports::compile_report($prev_course_enrollments, $course_enrollments, $manual_flags);
+            $report = reports::compile_report($prev_course_enrollments, $course_enrollments, $manual_flags, $withdrawn);
             reports::send_report($this->term, $report);
             return null;
         default:
@@ -204,6 +205,7 @@ class db {
 
         $course_enrollments = [];
         $manual_flags = [];
+        $withdrawn = [];
 
         foreach ($course_list as $course) {
             $grad_course = array_search($course, $mapped_courses);
@@ -222,6 +224,13 @@ class db {
                 if ($res === false)
                     die("Failed to lookup counts with manual flag set for {$course}\n");
                 $manual_flags[$course] = (int) pg_fetch_result($res, 0);
+
+                // Get withdrawn enrollments count
+                $sql = "SELECT COUNT(registration_type) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section IS NOT NULL AND registration_type='withdrawn'";
+                $res = pg_query_params(self::$db, $sql, $params);
+                if ($res === false)
+                    die("Failed to lookup counts with manual flag set for {$course}\n");
+                $withdrawn[$course] = (int) pg_fetch_result($res, 0);
             } else {
                 // UNDERGRADUATE SECTION
                 $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='1'";
@@ -238,6 +247,13 @@ class db {
                     die("Failed to lookup counts with manual flag set for {$course} (undergrads)\n");
                 $manual_flags[$course] = (int) pg_fetch_result($res, 0);
 
+                // Get withdrawn enrollments count
+                $sql = "SELECT COUNT(registration_type) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='1' AND registration_type='withdrawn'";
+                $res = pg_query_params(self::$db, $sql, $params);
+                if ($res === false)
+                    die("Failed to lookup counts with manual flag set for {$course}\n");
+                $withdrawn[$course] = (int) pg_fetch_result($res, 0);
+
                 // GRADUATE SECTION
                 $sql = "SELECT COUNT(*) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='2'";
                 $res = pg_query_params(self::$db, $sql, $params);
@@ -251,13 +267,21 @@ class db {
                 if ($res === false)
                     die("Failed to lookup counts with manual flag set for {$course} (grads)\n");
                 $manual_flags[$grad_course] = (int) pg_fetch_result($res, 0);
+
+                // Get withdrawn enrollments count
+                $sql = "SELECT COUNT(registration_type) FROM courses_users WHERE term=$1 AND course=$2 AND user_group=4 AND registration_section='2' AND registration_type='withdrawn'";
+                $res = pg_query_params(self::$db, $sql, $params);
+                if ($res === false)
+                    die("Failed to lookup counts with manual flag set for {$course}\n");
+                $withdrawn[$grad_course] = (int) pg_fetch_result($res, 0);
             }
         }
 
         // Courses make up array keys.  Sort by courses.
         ksort($course_enrollments);
         ksort($manual_flags);
-        return [$course_enrollments, $manual_flags];
+        ksort($withdrawn);
+        return [$course_enrollments, $manual_flags, $withdrawn];
     }
 }
 
@@ -320,20 +344,21 @@ class reports {
      * @param $manual_flags
      * @return string $report
      */
-    public static function compile_report($prev_course_enrollments, $course_enrollments, $manual_flags) {
+    public static function compile_report($prev_course_enrollments, $course_enrollments, $manual_flags, $withdrawn) {
         // Compile stats
         $date = date("F j, Y");
         $time = date("g:i A");
         $report  = <<<HEADING
         Student autofeed counts report for {$date} at {$time}
         NOTE: Difference and ratio do not account for the manual flag.
-        COURSE        YESTERDAY  TODAY  MANUAL  DIFFERENCE    RATIO\n
+        COURSE        YESTERDAY  TODAY  MANUAL  DIFFERENCE    RATIO  WITHDRAWN\n
         HEADING;
 
         foreach ($course_enrollments as $course=>$course_enrollment) {
             // Calculate data
-            $prev_course_enrollment = array_key_exists($course, $prev_course_enrollments) ? $prev_course_enrollments[$course] : 0;
-            $manual_flag = array_key_exists($course, $manual_flags) ? $manual_flags[$course] : 0;
+            $prev_course_enrollment = $prev_course_enrollments[$course] ?? 0;
+            $manual_flag = $manual_flags[$course] ?? 0;
+            $withdrew = $withdrawn[$course] ?? 0;
             $diff = $course_enrollment - $prev_course_enrollment;
             $ratio = $prev_course_enrollment != 0 ? abs(round(($diff / $prev_course_enrollment), 3)) : "N/A";
 
@@ -342,10 +367,11 @@ class reports {
             $prev_course_enrollment = str_pad($prev_course_enrollment, 5, " ", STR_PAD_LEFT);
             $course_enrollment = str_pad($course_enrollment, 5, " ", STR_PAD_LEFT);
             $manual_flag = str_pad($manual_flag, 6, " ", STR_PAD_LEFT);
+            $withdrew = str_pad($withdrew, 6, "", STR_PAD_LEFT);
             $diff = str_pad($diff, 10, " ", STR_PAD_LEFT);
 
             // Add row to report.
-            $report .= "{$course}{$prev_course_enrollment}  {$course_enrollment}  {$manual_flag}  {$diff}    {$ratio}\n";
+            $report .= "{$course}{$prev_course_enrollment}  {$course_enrollment}  {$manual_flag}  {$diff}    {$ratio}  {$withdrew}\n";
         }
 
         return $report;
