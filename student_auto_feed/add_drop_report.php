@@ -367,8 +367,8 @@ class reports {
             $prev_course_enrollment = str_pad($prev_course_enrollment, 5, " ", STR_PAD_LEFT);
             $course_enrollment = str_pad($course_enrollment, 5, " ", STR_PAD_LEFT);
             $manual_flag = str_pad($manual_flag, 6, " ", STR_PAD_LEFT);
-            $withdrew = str_pad($withdrew, 6, "", STR_PAD_LEFT);
             $diff = str_pad($diff, 10, " ", STR_PAD_LEFT);
+            $ratio = str_pad($ratio, 5, " ", STR_PAD_RIGHT);
 
             // Add row to report.
             $report .= "{$course}{$prev_course_enrollment}  {$course_enrollment}  {$manual_flag}  {$diff}    {$ratio}  {$withdrew}\n";
