@@ -47,7 +47,7 @@ class sql {
         user_numeric_id,
         user_givenname,
         user_familyname,
-        user_preferred_givenname,
+        NULLIF(user_preferred_givenname, ''),
         user_email
     ) VALUES ($1, $2, $3, $4, $5, $6)
     ON CONFLICT (user_id) DO UPDATE
