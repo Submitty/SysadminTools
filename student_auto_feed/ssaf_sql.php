@@ -57,7 +57,7 @@ class sql {
         user_preferred_givenname=
             CASE WHEN users.user_updated=FALSE
                 AND users.instructor_updated=FALSE
-                AND COALESCE(users.user_preferred_givenname, '')=''
+                AND users.user_preferred_givenname IS NULL
             THEN EXCLUDED.user_preferred_givenname
             ELSE users.user_preferred_givenname
             END,
