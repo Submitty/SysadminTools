@@ -47,9 +47,9 @@ class sql {
         user_numeric_id,
         user_givenname,
         user_familyname,
-        NULLIF(user_preferred_givenname, ''),
+        user_preferred_givenname,
         user_email
-    ) VALUES ($1, $2, $3, $4, $5, $6)
+    ) VALUES ($1, $2, $3, $4, NULLIF($5,''), $6)
     ON CONFLICT (user_id) DO UPDATE
     SET user_numeric_id=EXCLUDED.user_numeric_id,
         user_givenname=EXCLUDED.user_givenname,
