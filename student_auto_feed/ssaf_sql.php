@@ -49,7 +49,7 @@ class sql {
         user_familyname,
         user_preferred_givenname,
         user_email
-    ) VALUES ($1, $2, $3, $4, $5, $6)
+    ) VALUES ($1, $2, $3, $4, NULLIF($5,''), $6)
     ON CONFLICT (user_id) DO UPDATE
     SET user_numeric_id=EXCLUDED.user_numeric_id,
         user_givenname=EXCLUDED.user_givenname,
@@ -57,7 +57,7 @@ class sql {
         user_preferred_givenname=
             CASE WHEN users.user_updated=FALSE
                 AND users.instructor_updated=FALSE
-                AND COALESCE(users.user_preferred_givenname, '')=''
+                AND users.user_preferred_givenname IS NULL
             THEN EXCLUDED.user_preferred_givenname
             ELSE users.user_preferred_givenname
             END,
