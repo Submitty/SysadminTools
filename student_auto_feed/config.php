@@ -117,6 +117,7 @@ define('COLUMN_PREFERREDNAME', 3);  //Student's Preferred Name
 define('COLUMN_EMAIL',         4);  //Student's Campus Email
 define('COLUMN_TERM_CODE',     11); //Semester code used in data validation
 define('COLUMN_REG_ID',        12); //Course and Section registration ID
+define('COLUMN_CREDITS',       13); //Credits registered
 
 //Validate term code.  Set to null to disable this check.
 define('EXPECTED_TERM_CODE', '201705');
@@ -126,6 +127,17 @@ define('HEADER_ROW_EXISTS', true);
 
 //Set to true, if Submitty is using SAML for authentication.
 define('PROCESS_SAML', true);
+
+/* RENSSELAER CENTER FOR OPEN SOURCE (RCOS) -------------------------------- */
+
+//RCOS mapping is set true when all RCOS students are in the same CRN (course and section).
+//When set true, RCOS students will be mapped to a section based on their credit load.  e.g. 4 credits -> section 4.
+//Set to false if either RCOS is not using Submitty or students are separated into different sections by credit load.
+define('RCOS_MAPPING', false);
+
+//When RCOS mapping is true, set the course code for RCOS here.
+//This is ignored when RCOS_MAPPING is false.
+define('RCOS_COURSE_CODE', "csci4700");
 
 /* DATA SOURCING --------------------------------------------------------------
  * The Student Autofeed provides helper scripts to retrieve the CSV file for
