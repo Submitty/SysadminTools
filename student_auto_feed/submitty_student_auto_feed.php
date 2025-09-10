@@ -212,6 +212,13 @@ class submitty_student_auto_feed {
             // Check that $row is associated with the course list.
             case array_search($course, $this->course_list) !== false:
                 if (validate::validate_row($row, $row_num)) {
+                    // There is a special condition for RCOS where a student's credit load is mapped to their enrollment section.
+                    // We need to check (1) we are mapping RCOS credits to section, and (2) AND this row is for an RCOS course.
+                    // (RCOS only admits undergrads, so this will not happen in a mapped course)
+                    if (RCOS_MAPPING && $course === RCOS_COURSE_CODE) {
+                        $row[COLUMN_SECTION] = $row[COLUMN_CREDITS];
+                    }
+
                     // Include $row
                     $this->data[$course][] = $row;
 
