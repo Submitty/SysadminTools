@@ -5,7 +5,7 @@
  *
  * This script will read a student enrollment CSV feed provided by the campus
  * registrar or data warehouse and "upsert" (insert/update) the feed into
- * Submitty's course databases.  Requires PHP 7.3 and pgsql extension.
+ * Submitty's course databases.  Requires pgsql extension.
  *
  * @author Peter Bailie, Rensselaer Polytechnic Institute
  */
@@ -217,6 +217,7 @@ class submitty_student_auto_feed {
                     // (RCOS only admits undergrads, so this will not happen in a mapped course)
                     if (RCOS_MAPPING && $course === RCOS_COURSE_CODE) {
                         $row[COLUMN_SECTION] = $row[COLUMN_CREDITS];
+                        print $row[COLUMN_SECTION];
                     }
 
                     // Include $row

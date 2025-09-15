@@ -69,7 +69,7 @@ class validate {
             self::$error = "Row {$row_num} failed validation for student email \"{$row[COLUMN_EMAIL]}\".";
             return false;
         // When RCOS_MAPPING is true, credit load must be between 1 and 4.  Skip this check when RCOS_MAPPING is false.
-        case !(RCOS_MAPPING && !boolval(preg_match("/^[1-4]$/", $row['COLUMN_CREDITS']))):
+        case !(RCOS_MAPPING && !boolval(preg_match("/^[1-4]$/", $row[COLUMN_CREDITS]))):
             self::$error = "Row {$row_num} failed validation for RCOS credit load at \"{$row[COLUMN_CREDITS]}\".";
             return false;
         }
