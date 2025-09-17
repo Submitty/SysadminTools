@@ -185,14 +185,17 @@ class submitty_student_auto_feed {
         // Read and assign csv rows into $this->data array
         $row = fgetcsv($this->fh, 0, CSV_DELIM_CHAR);
         while(!feof($this->fh)) {
-            // Course is comprised of an alphabetic prefix and a numeric suffix.
-            $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
-
             // Trim whitespace from all fields in $row.
             array_walk($row, function(&$val, $key) { $val = trim($val); });
 
             // Remove any leading zeroes from "integer" registration sections.
             if (ctype_digit($row[COLUMN_SECTION])) $row[COLUMN_SECTION] = ltrim($row[COLUMN_SECTION], "0");
+
+            // Course is comprised of an alphabetic prefix and a numeric suffix.
+            $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
+
+            // Ensure RCOS's course code is in the same case as $course.
+            $rcos = strtolower(RCOS_COURSE_CODE);
 
             switch(true) {
             // Check that $row has an appropriate student registration.
@@ -215,9 +218,8 @@ class submitty_student_auto_feed {
                     // There is a special condition for RCOS where a student's credit load is mapped to their enrollment section.
                     // We need to check (1) we are mapping RCOS credits to section, and (2) AND this row is for the RCOS course.
                     // (RCOS only admits undergrads, so this will not happen in a mapped course)
-                    if (RCOS_MAPPING && $course === RCOS_COURSE_CODE) {
+                    if (RCOS_MAPPING && $course === $rcos) {
                         $row[COLUMN_SECTION] = $row[COLUMN_CREDITS];
-                        print $row[COLUMN_SECTION];
                     }
 
                     // Include $row
