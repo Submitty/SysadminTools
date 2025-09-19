@@ -194,9 +194,6 @@ class submitty_student_auto_feed {
             // Course is comprised of an alphabetic prefix and a numeric suffix.
             $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
 
-            // Ensure RCOS's course code is in the same case as $course.
-            $rcos = strtolower(RCOS_COURSE_CODE);
-
             switch(true) {
             // Check that $row has an appropriate student registration.
             case array_search($row[COLUMN_REGISTRATION], $all_valid_reg_codes) === false:
@@ -215,13 +212,6 @@ class submitty_student_auto_feed {
             // Check that $row is associated with the course list.
             case array_search($course, $this->course_list) !== false:
                 if (validate::validate_row($row, $row_num)) {
-                    // There is a special condition for RCOS where a student's credit load is mapped to their enrollment section.
-                    // We need to check (1) we are mapping RCOS credits to section, and (2) AND this row is for the RCOS course.
-                    // (RCOS only admits undergrads, so this will not happen in a mapped course)
-                    if (RCOS_MAPPING && $course === $rcos) {
-                        $row[COLUMN_SECTION] = $row[COLUMN_CREDITS];
-                    }
-
                     // Include $row
                     $this->data[$course][] = $row;
 

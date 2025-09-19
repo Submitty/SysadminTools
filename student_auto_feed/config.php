@@ -128,17 +128,6 @@ define('HEADER_ROW_EXISTS', true);
 //Set to true, if Submitty is using SAML for authentication.
 define('PROCESS_SAML', true);
 
-/* RENSSELAER CENTER FOR OPEN SOURCE (RCOS) -------------------------------- */
-
-//RCOS mapping is set true when all RCOS students are in the same CRN (course and section).
-//When set true, RCOS students will be mapped to a section based on their credit load.  e.g. 4 credits -> section 4.
-//Set to false if either RCOS is not using Submitty or students are separated into different sections by credit load.
-define('RCOS_MAPPING', false);
-
-//When RCOS mapping is true, set the course code for RCOS here.
-//This is ignored when RCOS_MAPPING is false.
-define('RCOS_COURSE_CODE', "csci4700");
-
 /* DATA SOURCING --------------------------------------------------------------
  * The Student Autofeed provides helper scripts to retrieve the CSV file for
  * processing.  Shell script ssaf.sh is used to invoke one of the helper
