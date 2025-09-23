@@ -15,6 +15,7 @@ require __DIR__ . "/config.php";
 require __DIR__ . "/ssaf_cli.php";
 require __DIR__ . "/ssaf_db.php";
 require __DIR__ . "/ssaf_validate.php";
+require __DIR__ . "/ssaf_rcos.php";
 
 // Important: Make sure we are running from CLI
 if (php_sapi_name() !== "cli") {
@@ -27,22 +28,24 @@ exit;
 
 /** primary process class */
 class submitty_student_auto_feed {
-    /** @var resource File handle to read CSV */
-    private $fh;
-    /** @var string Semester code */
-    private $semester;
-    /** @var array List of courses registered in Submitty */
-    private $course_list;
-    /** @var array Describes how courses are mapped from one to another */
-    private $mapped_courses;
-    /** @var array Describes courses/sections that are duplicated to other courses/sections */
-    private $crn_copymap;
-    /** @var array Courses with invalid data. */
-    private $invalid_courses;
-    /** @var array All CSV data to be upserted */
-    private $data;
-    /** @var string Ongoing string of messages to write to logfile */
-    private $log_msg_queue;
+    /** File handle to read CSV */
+    private resource $fh;
+    /** Semester code */
+    private string $semester;
+    /** List of courses registered in Submitty */
+    private array $course_list;
+    /** Describes how courses are mapped from one to another */
+    private array $mapped_courses;
+    /** Describes courses/sections that are duplicated to other courses/sections */
+    private array $crn_copymap;
+    /** Courses with invalid data. */
+    private array $invalid_courses;
+    /** All CSV data to be upserted */
+    private array $data;
+    /** Ongoing string of messages to write to logfile */
+    private string $log_msg_queue;
+    /** For special cases involving Renssealer Center for Open Source */
+    private object $rcos;
 
     /** Init properties.  Open DB connection.  Open CSV file. */
     public function __construct() {
@@ -80,6 +83,9 @@ class submitty_student_auto_feed {
             exit(1);
         }
 
+        // Helper object for special-cases involving RCOS.
+        $this->rcos = new rcos();
+
         // Get course list
         $error = null;
         $this->course_list = db::get_course_list($this->semester, $error);
@@ -96,6 +102,9 @@ class submitty_student_auto_feed {
             $this->shutdown();
             exit(1);
         }
+
+        // RCOS courses should not be mapped in the database.
+
 
         // Get CRN shared courses/sections (when a course/section is copied to another course/section)
         $this->crn_copymap = $this->read_crn_copymap();
@@ -193,6 +202,9 @@ class submitty_student_auto_feed {
 
             // Course is comprised of an alphabetic prefix and a numeric suffix.
             $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
+
+            // Check/perform special-case RCOS registration section mapping.
+            rcos::map($course, $row);
 
             switch(true) {
             // Check that $row has an appropriate student registration.

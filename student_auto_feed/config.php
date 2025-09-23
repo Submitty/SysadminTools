@@ -128,6 +128,17 @@ define('HEADER_ROW_EXISTS', true);
 //Set to true, if Submitty is using SAML for authentication.
 define('PROCESS_SAML', true);
 
+/* RENSSELAER CENTER FOR OPEN SOURCE (RCOS) --------------------------------
+ * RCOS is not just one course, but several.  Some of these courses also
+ * permit a student to declare their credit load.  The data feed will need
+ * a column showing a student's credit load.  See above: COLUMN_CREDITS
+ *
+ * DO NOT MAP RCOS COURSES IN THE SUBMITTY DATABASE
+ */
+
+// List all RCOS courses, as an array.  If you are not tracking RCOS, then set as null or an empty array.
+define('RCOS_COURSE_LIST', null);
+
 /* DATA SOURCING --------------------------------------------------------------
  * The Student Autofeed provides helper scripts to retrieve the CSV file for
  * processing.  Shell script ssaf.sh is used to invoke one of the helper
