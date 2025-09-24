@@ -133,10 +133,15 @@ define('PROCESS_SAML', true);
  * permit a student to declare their credit load.  The data feed will need
  * a column showing a student's credit load.  See above: COLUMN_CREDITS
  *
- * DO NOT MAP RCOS COURSES IN THE SUBMITTY DATABASE
+ * RCOS courses need to be mapped to a "primary" course in the database,
+ * but the autofeed will override the registration section as
+ * "{course_code}-{credit_load}".  e.g. "csci4700-4".
  */
 
-// List all RCOS courses, as an array.  If you are not tracking RCOS, then set as null or an empty array.
+// 1. List all RCOS courses, as an array.  If you are not tracking RCOS, then set as null or an empty array.
+// 2. One (any which one) of these courses needs to be designated as "primary" and the others need to be mapped to the
+// primary within the database.  Registration sections need to be defined in the database, but are otherwise irrelevant
+// as the auto feed will override registration sections.
 define('RCOS_COURSE_LIST', null);
 
 /* DATA SOURCING --------------------------------------------------------------

@@ -29,7 +29,7 @@ exit;
 /** primary process class */
 class submitty_student_auto_feed {
     /** File handle to read CSV */
-    private resource $fh;
+    private $fh;
     /** Semester code */
     private string $semester;
     /** List of courses registered in Submitty */
@@ -83,9 +83,6 @@ class submitty_student_auto_feed {
             exit(1);
         }
 
-        // Helper object for special-cases involving RCOS.
-        $this->rcos = new rcos();
-
         // Get course list
         $error = null;
         $this->course_list = db::get_course_list($this->semester, $error);
@@ -103,11 +100,11 @@ class submitty_student_auto_feed {
             exit(1);
         }
 
-        // RCOS courses should not be mapped in the database.
-
-
         // Get CRN shared courses/sections (when a course/section is copied to another course/section)
         $this->crn_copymap = $this->read_crn_copymap();
+
+        // Helper object for special-cases involving RCOS.
+        $this->rcos = new rcos();
 
         // Init other properties.
         $this->invalid_courses = [];
@@ -203,9 +200,6 @@ class submitty_student_auto_feed {
             // Course is comprised of an alphabetic prefix and a numeric suffix.
             $course = strtolower($row[COLUMN_COURSE_PREFIX] . $row[COLUMN_COURSE_NUMBER]);
 
-            // Check/perform special-case RCOS registration section mapping.
-            rcos::map($course, $row);
-
             switch(true) {
             // Check that $row has an appropriate student registration.
             case array_search($row[COLUMN_REGISTRATION], $all_valid_reg_codes) === false:
@@ -224,6 +218,9 @@ class submitty_student_auto_feed {
             // Check that $row is associated with the course list.
             case array_search($course, $this->course_list) !== false:
                 if (validate::validate_row($row, $row_num)) {
+                    // Check (and perform) special-case RCOS registration section mapping.
+                    $this->rcos->map($course, $row);
+
                     // Include $row
                     $this->data[$course][] = $row;
 
@@ -245,8 +242,13 @@ class submitty_student_auto_feed {
                 if (array_key_exists($section, $this->mapped_courses[$course])) {
                     $m_course = $this->mapped_courses[$course][$section]['mapped_course'];
                     if (validate::validate_row($row, $row_num)) {
-                        // Include $row.
+                        // Do course mapping (alters registration section).
                         $row[COLUMN_SECTION] = $this->mapped_courses[$course][$section]['mapped_section'];
+
+                        // Check (and override) for special-case RCOS registration section mapping.
+                        $this->rcos->map($course, $row);
+
+                        // Include $row.
                         $this->data[$m_course][] = $row;
 
                         // $row with a blank email is allowed, but it is also logged.
