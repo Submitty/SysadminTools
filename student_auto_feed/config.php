@@ -128,20 +128,23 @@ define('HEADER_ROW_EXISTS', true);
 //Set to true, if Submitty is using SAML for authentication.
 define('PROCESS_SAML', true);
 
-/* RENSSELAER CENTER FOR OPEN SOURCE (RCOS) --------------------------------
+/* RENSSELAER CENTER FOR OPEN SOURCE (RCOS) -----------------------------------
  * RCOS is not just one course, but several.  Some of these courses also
  * permit a student to declare their credit load.  The data feed will need
  * a column showing a student's credit load.  See above: COLUMN_CREDITS
  *
- * RCOS courses need to be mapped to a "primary" course in the database,
- * but the autofeed will override the registration section as
- * "{course_code}-{credit_load}".  e.g. "csci4700-4".
+ * Create only one RCOS course in Submitty, which will show up in the
+ * grader's/instructor's course list.  The other RCOS courses must be mapped to
+ * this first course.  Registration sections do need to be fully mapped, as the
+ * database does not permit mapping NULL sections.  However, the upsert process
+ * will override how RCOS enrollments are translated, so that registration
+ * sections are, per student, "{course}-{credits}"  e.g. J. Doe is enrolled in
+ * RCOS course CSCI4700 for 4 credits.  They will be listed as enrolled in
+ * registration section "CSCI4700-4"
  */
 
-// 1. List all RCOS courses, as an array.  If you are not tracking RCOS, then set as null or an empty array.
-// 2. One (any which one) of these courses needs to be designated as "primary" and the others need to be mapped to the
-// primary within the database.  Registration sections need to be defined in the database, but are otherwise irrelevant
-// as the auto feed will override registration sections.
+// List *ALL* RCOS courses, as an array.
+// If you are not tracking RCOS, then set this as null or an empty array.
 define('RCOS_COURSE_LIST', null);
 
 /* DATA SOURCING --------------------------------------------------------------
