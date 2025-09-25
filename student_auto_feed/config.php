@@ -3,9 +3,7 @@
 /* HEADING ---------------------------------------------------------------------
  *
  * config.php script used by submitty_student_auto_feed
- * By Peter Bailie, Systems Programmer (RPI dept of computer science)
- *
- * Requires minimum PHP version 7.3 with pgsql extension.
+ * By Peter Bailie, Renssealer Polytechnic Institute
  *
  * Configuration of submitty_student_auto_feed is structured through a series
  * of named constants.
