@@ -141,8 +141,8 @@ class submitty_student_auto_feed {
         case $this->check_for_excessive_dropped_users():
             // This check will block all upserts when an error is detected.
             exit(1);
-        case $this->check_for_duplicate_user_ids():
-            $this->log_it("Duplicate user IDs detected in CSV file.");
+        case $this->filter_duplicate_registrations():
+            // Never returns false.  Error messages are already in log queue.
             break;
         case $this->invalidate_courses():
             // Should do nothing when $this->invalid_courses is empty
@@ -299,31 +299,31 @@ class submitty_student_auto_feed {
     }
 
     /**
-     * Users cannot be registered to the same course multiple times.
+     * Students cannot be registered to the same course multiple times.
      *
-     * Any course with a user registered more than once is flagged invalid as
-     * it is indicative of data errors from the CSV file.
-     *
-     * @return bool always TRUE
+     * If multiple registrations for the same student and course are found, the first instance is allowed to be
+     * upserted to the database.  All other instances are removed from the data set and therefore not upserted.
      */
-    private function check_for_duplicate_user_ids() {
-        foreach($this->data as $course => $rows) {
-            $user_ids = null;
-            $d_rows = null;
-            // Returns FALSE (as in there is an error) when duplicate IDs are found.
-            // However, a duplicate ID does not invalidate a course.  Instead, the
-            // first enrollment is accepted, the other enrollments are discarded,
-            // and the event is logged.
-            if (validate::check_for_duplicate_user_ids($rows, $user_ids, $d_rows) === false) {
-                foreach($d_rows as $user_id => $userid_rows) {
-                    $length = count($userid_rows);
-                    for ($i = 1; $i < $length; $i++) {
-                        unset($this->data[$course][$userid_rows[$i]]);
-                    }
-                }
+    private function filter_duplicate_registrations(): true {
+        foreach($this->data as $course => &$rows) {
+            usort($rows, function($a, $b) { return $a[COLUMN_USER_ID] <=> $b[COLUMN_USER_ID]; });
+            $duplicated_ids = [];
+            $num_rows = count($rows);
 
+            // We are iterating from bottom to top through a course's data set.  Should we find a duplicate registration
+            // and unset it from the array, (1) we are unsetting duplicates starting from the bottom, (2) which preserves
+            // the first entry among duplicate entries, and (3) we do not make a comparison with a null key.
+            for ($j = $num_rows - 1, $i = $j - 1; $i >= 0; $i--, $j--) {
+                if ($rows[$i][COLUMN_USER_ID] === $rows[$j][COLUMN_USER_ID]) {
+                    $duplicated_ids[] = $rows[$j][COLUMN_USER_ID];
+                    unset($rows[$j]);
+                }
+            }
+
+            if (count($duplicated_ids) > 0) {
+                array_unique($duplicated_ids, SORT_STRING);
                 $msg = "Duplicate user IDs detected in {$course} data: ";
-                $msg .= implode(", ", $user_ids);
+                $msg .= implode(", ", $duplicated_ids);
                 $this->log_it($msg);
             }
         }

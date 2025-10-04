@@ -75,48 +75,6 @@ class validate {
     }
 
     /**
-     * Check $rows for duplicate user IDs.
-     *
-     * Submitty's master DB does not permit students to register more than once
-     * for any course.  It would trigger a key violation exception.  This
-     * function checks for data anomalies where a student shows up in a course
-     * more than once as that is indicative of an issue with CSV file data.
-     * Returns TRUE, as in no error, when $rows has all unique user IDs.
-     * False, as in error found, otherwise.  $user_ids is filled when return
-     * is FALSE.
-     *
-     * @param array $rows Data rows to check (presumably an entire couse).
-     * @param string[] &$user_id Duplicated user ID, when found.
-     * @param string[] &$d_rows Rows containing duplicate user IDs, indexed by user ID.
-     * @return bool TRUE when all user IDs are unique, FALSE otherwise.
-     */
-    public static function check_for_duplicate_user_ids(array $rows, &$user_ids, &$d_rows) : bool {
-        usort($rows, function($a, $b) { return $a[COLUMN_USER_ID] <=> $b[COLUMN_USER_ID]; });
-
-        $user_ids = [];
-        $d_rows = [];
-        $are_all_unique = true;  // Unless proven FALSE
-        $length = count($rows);
-        for ($i = 1; $i < $length; $i++) {
-            $j = $i - 1;
-            if ($rows[$i][COLUMN_USER_ID] === $rows[$j][COLUMN_USER_ID]) {
-                $are_all_unique = false;
-                $user_id = $rows[$i][COLUMN_USER_ID];
-                $user_ids[] = $user_id;
-                $d_rows[$user_id][] = $j;
-                $d_rows[$user_id][] = $i;
-            }
-        }
-
-        foreach($d_rows as &$d_row) {
-            array_unique($d_row, SORT_REGULAR);
-        }
-        unset($d_row);
-
-        return $are_all_unique;
-    }
-
-    /**
      * Validate that there isn't an excessive drop ratio in course enrollments.
      *
      * An excessive ratio of dropped enrollments may indicate a problem with
