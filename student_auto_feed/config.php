@@ -3,9 +3,7 @@
 /* HEADING ---------------------------------------------------------------------
  *
  * config.php script used by submitty_student_auto_feed
- * By Peter Bailie, Systems Programmer (RPI dept of computer science)
- *
- * Requires minimum PHP version 7.3 with pgsql extension.
+ * By Peter Bailie, Renssealer Polytechnic Institute
  *
  * Configuration of submitty_student_auto_feed is structured through a series
  * of named constants.
@@ -117,6 +115,7 @@ define('COLUMN_PREFERREDNAME', 3);  //Student's Preferred Name
 define('COLUMN_EMAIL',         4);  //Student's Campus Email
 define('COLUMN_TERM_CODE',     11); //Semester code used in data validation
 define('COLUMN_REG_ID',        12); //Course and Section registration ID
+define('COLUMN_CREDITS',       13); //Credits registered
 
 //Validate term code.  Set to null to disable this check.
 define('EXPECTED_TERM_CODE', '201705');
@@ -126,6 +125,25 @@ define('HEADER_ROW_EXISTS', true);
 
 //Set to true, if Submitty is using SAML for authentication.
 define('PROCESS_SAML', true);
+
+/* RENSSELAER CENTER FOR OPEN SOURCE (RCOS) -----------------------------------
+ * RCOS is not just one course, but several.  Some of these courses also
+ * permit a student to declare their credit load.  The data feed will need
+ * a column showing a student's credit load.  See above: COLUMN_CREDITS
+ *
+ * Create only one RCOS course in Submitty, which will show up in the
+ * grader's/instructor's course list.  The other RCOS courses must be mapped to
+ * this first course.  Registration sections do need to be fully mapped, as the
+ * database does not permit mapping NULL sections.  However, the upsert process
+ * will override how RCOS enrollments are translated, so that registration
+ * sections are, per student, "{course}-{credits}"  e.g. J. Doe is enrolled in
+ * RCOS course CSCI4700 for 4 credits.  They will be listed as enrolled in
+ * registration section "CSCI4700-4"
+ */
+
+// List *ALL* RCOS courses, as an array.
+// If you are not tracking RCOS, then set this as null or an empty array.
+define('RCOS_COURSE_LIST', null);
 
 /* DATA SOURCING --------------------------------------------------------------
  * The Student Autofeed provides helper scripts to retrieve the CSV file for
